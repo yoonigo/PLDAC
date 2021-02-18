@@ -90,12 +90,21 @@ def get_vector_prims(length, color=None):
                  (length * 0.9, -0.1 * length)]
         return [Primitive2DGL(verts, color, primtype)]
 
-def get_player_prims(color):
+def get_player_prims(color, shape):
         rad = settings.PLAYER_RADIUS
         eps = 0.3 * rad
-        corps = Primitive2DGL([(-rad, -rad), (-rad, rad),
-                               (rad - eps, rad), (rad - eps, -rad)], color)
-        front = Primitive2DGL([(rad - eps, rad * 0.85), (rad, 0), (rad - eps, -rad * 0.85)], color)
+        if shape == "carre":
+            corps = Primitive2DGL([(-rad, -rad), (-rad, rad),
+                                   (rad , rad), (rad, -rad)], color)
+            front = Primitive2DGL([(rad - eps, rad * 0.85), (rad, 0), (rad - eps, -rad * 0.85)], color)
+        elif shape == "triangle":
+            corps = Primitive2DGL([(-rad-eps, -rad-eps), (0, rad+eps),
+                                   (rad+eps, -rad-eps)], color)
+            front = Primitive2DGL([(0, rad * 0.85), (rad+eps, 0)], color)
+        else: #hexagone
+            corps = Primitive2DGL([(-rad-eps/2, -rad+eps), (-rad-eps/2, rad-eps), (0, rad+rad/2),
+                                   (rad+eps/2, rad-eps), (rad+eps/2, -rad+eps), (0, -rad-rad/2)], color)
+            front = Primitive2DGL([(rad - eps, rad * 0.85), (rad, 0), (rad - eps, -rad * 0.85)], color)
         return [corps, front]
 
 def get_ball_prims():
@@ -166,11 +175,17 @@ class TextSprite(object):
 
 
 class PlayerSprite(ObjectSprite):
-    def __init__(self, name, color):
+    def __init__(self, name, color, type):
         ObjectSprite.__init__(self)
         self.name = name
         self.color = color
-        self.add_primitives(get_player_prims(self.color))
+        self.type = type
+        if type == "agility":
+            self.add_primitives(get_player_prims(self.color, "carre"))
+        elif type == "strength":
+            self.add_primitives(get_player_prims(self.color, "hexagone"))
+        else:
+            self.add_primitives(get_player_prims(self.color, "triangle"))
         self.text = TextSprite(self.name, color=col2rgb(self.color) + [200], scale=SCALE_NAME)
 
     def draw(self):
