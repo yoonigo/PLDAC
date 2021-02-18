@@ -414,6 +414,17 @@ class SoccerTeam(object):
         :return: nom du joueur
         """
         return self.players[idx].name
+    #------------------------------------------------------------------------------------------------
+    #------------------------------------------------------------------------------------------------
+    def players_type(self):
+        """ retourne listes des types des joueurs de l'equipe"""
+        return [x.type for x in self.players]
+    def player_type(self, idx):
+        """ retourne type du joueur de numero idx"""
+        return self.players[idx].type
+    #------------------------------------------------------------------------------------------------
+    #------------------------------------------------------------------------------------------------
+
     @property
     def strategies(self):
         """
