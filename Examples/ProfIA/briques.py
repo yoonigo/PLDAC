@@ -24,9 +24,27 @@ class ComportementNaif(Comportement):
         if self.can_kick:
             return SoccerAction(shoot=(self.his_goal-self.ball_p).normalize()*self.THROW_COEF)
         return SoccerAction()
-    
+
+class ComportementNew(Comportement):
+    RUN_COEF = maxPlayerAcceleration
+    SHOOT_COEF = maxPlayerShoot/3.
+
+    def __init__(self,state):
+        super(ComportementNew,self).__init__(state)
+
+    def allerVers(self, p):
+        return SoccerAction(acceleration=(p-self.me).normalize()*RUN_COEF)
+
+    def tirerVers(self, p):
+        if self.can_kick:
+            return SoccerAction(shoot=(p-self.ball_p).normalize()*SHOOT_COEF)
+        return SoccerAction()
+
+    def intercepter(self):
+        return self.allerVers(self.ball_position_finale)
+
 class ConditionDefenseur(ProxyObj):
-    COEF_DEF = 0.3 
+    COEF_DEF = 0.3
     def __init__(self,state):
         super(ConditionDefenseur,self).__init__(state)
     def is_defense(self):
