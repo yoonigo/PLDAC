@@ -52,6 +52,12 @@ class SuperState(ProxyObj):
         return GAME_GOAL_HEIGHT/2.
     def distance(self,p):
         return self.me.distance(p)
+    @property
+    def my_config(self):
+        return self.player_state(*self.key)
+    @property
+    def my_vitesse(self):
+        return self.player_state(*self.key).vitesse
 
 class Comportement(ProxyObj):
     def __init__(self,obj):
@@ -63,4 +69,10 @@ class Comportement(ProxyObj):
     def shoot(self):
         raise(NotImplementedError)
     def degage(self):
+        raise(NotImplementedError)
+    def allerVers(self, p):
+        raise(NotImplementedError)
+    def tirerVers(self, p):
+        raise(NotImplementedError)
+    def intercepter(self):
         raise(NotImplementedError)
