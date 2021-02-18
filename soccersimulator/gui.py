@@ -90,9 +90,16 @@ class SimuGUI(pyglet.window.Window):
         for k, v in self.state.players:
             if not self.get_team(k):
                 name_p = '%d %d|' % (k, v)
+                #################################
+                type="agility"
+                ################################
             else:
                 name_p = self.get_team(k).player_name(v)
-            self._sprites[(k, v)] = PlayerSprite(name_p, color=TEAM1_COLOR if k == 1 else TEAM2_COLOR)
+                #################################################
+                type  = self.get_team(k).player_type(v)
+                ###############################################
+            color=TEAM1_COLOR if k == 1 else TEAM2_COLOR
+            self._sprites[(k, v)] = PlayerSprite(name_p, color, type)
         if hasattr(self.state,"zones_1"):
             for i,z in enumerate(self.state.zones_1):
                 self._sprites[(i,"z1")]=RectSprite(z.l, GREEN_COLOR if self.state.zones_1_bool[i] else RED_COLOR)
@@ -229,6 +236,12 @@ class SimuGUI(pyglet.window.Window):
             return self.simu.get_team(i)
         except Exception:
             return None
+    #####################################
+    #def get_players_type(self, i):
+#        team = self.get_team(i)
+        #return team.players_type()
+
+    #####################################
     def get_score(self,i):
         try:
             return self.state.get_score_team(i)
