@@ -98,8 +98,7 @@ def get_player_prims(color, shape):
                                    (rad , rad), (rad, -rad)], color)
             front = Primitive2DGL([(rad - eps, rad * 0.85), (rad, 0), (rad - eps, -rad * 0.85)], color)
         elif shape == "triangle":
-            corps = Primitive2DGL([(-rad-eps, -rad-eps), (0, rad+eps),
-                                   (rad+eps, -rad-eps)], color)
+            corps = Primitive2DGL([(rad, 0), (-rad-eps,rad+eps),(-rad-eps, -rad-eps)], color)
             front = Primitive2DGL([(0, rad * 0.85), (rad+eps, 0)], color)
         else: #hexagone
             corps = Primitive2DGL([(-rad-eps/2, -rad+eps), (-rad-eps/2, rad-eps), (0, rad+rad/2),
