@@ -78,6 +78,10 @@ class Ball(MobileMixin):
     def inside_goal(self):
         return (self.position.x < 0 or self.position.x > settings.GAME_WIDTH)\
                 and abs(self.position.y - (settings.GAME_HEIGHT / 2.)) < settings.GAME_GOAL_HEIGHT / 2.
+    def nextLikelyPosition(self):
+        ## prédit la position du ballon apres une passe ou un tir vers le goal pour permettre une interception
+        return self.position + 50*self.vitesse.normalize()
+
     def __repr__(self):
         return "Ball(%s,%s)" % (self.position.__repr__(),self.vitesse.__repr__())
     def __str__(self):
@@ -253,24 +257,24 @@ class SoccerState(object):
         teamQuiALeBallon = 2        ############### PARAMETRE A CREER !!
         self.goal = 0
         if actions:
-            print("########################################################")
+            #print("########################################################")
             for k, c in self.states.items():
                 if k in actions:
-                    print("********************************************************")
-                    print(k, actions[k][1]["agility"])
-                    print(c)
+                    #print("********************************************************")
+                    #print(k, actions[k][1]["agility"])
+                    #print(c)
                     shoots.append(c.next(self.ball, actions[k][0], actions[k][1]["speed"]))
-                    print("Shoot value : ", shoots[-1].x, shoots[-1].y)
+                    #print("Shoot value : ", shoots[-1].x, shoots[-1].y)
                     if((playersAgility < actions[k][1]["agility"] or (playersAgility == actions[k][1]["agility"] and teamQuiALeBallon != k[0])) and (shoots[-1].x != 0.0 or shoots[-1].y != 0.0)):
-                        print("CHANGEMENT", actions[k][1]["agility"])
+                    #    print("CHANGEMENT", actions[k][1]["agility"])
                         playersAgility = actions[k][1]["agility"]
                         playersStrength = actions[k][1]["strength"]
                         playersAgilityIndex = len(shoots)-1
-                        print(k)
-                    print(shoots)
-                    print(actions[k])
-                    print(self.player_state(k[0],k[1]))
-        print("########################################################")
+                    #    print(k)
+                    #print(shoots)
+                    #print(actions[k])
+                    #print(self.player_state(k[0],k[1]))
+        #print("########################################################")
         self.ball.next(shoots[playersAgilityIndex].scale(playersStrength))
         self.step += 1
         if self.ball.inside_goal():
@@ -410,6 +414,17 @@ class SoccerTeam(object):
         :return: nom du joueur
         """
         return self.players[idx].name
+    #------------------------------------------------------------------------------------------------
+    #------------------------------------------------------------------------------------------------
+    def players_type(self):
+        """ retourne listes des types des joueurs de l'equipe"""
+        return [x.type for x in self.players]
+    def player_type(self, idx):
+        """ retourne type du joueur de numero idx"""
+        return self.players[idx].type
+    #------------------------------------------------------------------------------------------------
+    #------------------------------------------------------------------------------------------------
+
     @property
     def strategies(self):
         """
@@ -473,7 +488,7 @@ class Simulation(object):
         try:
             self.replay = type(self.team1.strategy(0))==str or type(self.team1.strategy(0)) == unicode
         except NameError:
-            self.replay = type(self.team1.strategy(0))==str 
+            self.replay = type(self.team1.strategy(0))==str
         self._thread = None
         self._kill = False
         self._on_going = False
@@ -537,7 +552,7 @@ class Simulation(object):
                     logger.warning("Error for team %d -- loose match" % ((i+1),))
                     self.states.append(self.state.copy())
                     return
-            print(actions)
+            #print(actions)
             self.state.apply_actions(actions,strategies)
             self.states.append(self.state.copy())
         self.update_round()

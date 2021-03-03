@@ -14,6 +14,7 @@ class FonceurStrategy(Strategy):
         Strategy.__init__(self,"Fonceur")
     def compute_strategy(self,state,id_team,id_player):
         I = ConditionAttaque(ComportementNaif(SuperState(state,id_team,id_player)))
+        #I = ConditionAttaque(ComportementNew(SuperState(state,id_team,id_player)))
         return fonceur(I)
 
 class DefenseurStrategy(Strategy):
