@@ -16,6 +16,8 @@ FPS = 50.
 FPS_MOD = 5.
 logger = logging.getLogger("soccersimulator.gui")
 
+
+
 class SimuGUI(pyglet.window.Window):
     AUTO = 0
     MANUAL = 1
@@ -35,6 +37,7 @@ class SimuGUI(pyglet.window.Window):
 
     def __init__(self,simu=None,width=1200,height=800):
         pyglet.window.Window.__init__(self, width=width, height=height, resizable=True)
+        self.lastPlayersSelectedRecently = [] #TEMPORAIRE IL FAUT DECIDER D'OU LE METTRE
         self.set_size(width, height)
         self.focus()
         self.clear()
@@ -77,6 +80,49 @@ class SimuGUI(pyglet.window.Window):
             self._waiting_key = False
         else:
              self._mode_next = self.MANUAL
+
+    def on_mouse_press(self,x,y,button,modifiers):
+        lengthWindow, heightWindow = self.get_size() #Taille de l'interface en pixel
+        lengthField, heightField = lengthWindow,heightWindow*0.9 #Taille du terrain de jeu en pixel
+        xTrad, yTrad = (x*settings.GAME_WIDTH/lengthField,y*settings.GAME_HEIGHT/heightField) #Traduction de la position du pixel du clic de la souris en position sur le terrain
+
+        nearestPlayers = [] #Liste des joueurs proches de la souris
+        for k, v in self.state.players:
+            newValue = self.state.player_state(k,v).position.distance(Vector2D(xTrad, yTrad))
+            if(not nearestPlayers): #Si la liste est vide, le premier joueur est le plus proche
+                nearestPlayers.append(((k,v),newValue))
+            else: #Ensuite tous les joueurs seront comparées la liste sera completé (indice 0 = le plus proche)
+                index = 0
+                isNearest = False
+                while(index<len(nearestPlayers) and not isNearest):
+                    if(newValue < nearestPlayers[index][1]):
+                        isNearest = True
+                        nearestPlayers.insert(index,((k,v),newValue))
+                    else:
+                        index+=1
+                if(not isNearest):
+                    nearestPlayers.append(((k,v),newValue))
+        for i in range(len(nearestPlayers)-1,0,-1): #Les joueurs étant 'loin' ne sont plus considéré
+            if(nearestPlayers[i][1]-nearestPlayers[0][1]>1.5):
+                nearestPlayers.pop(i)
+        if(len(nearestPlayers) == 1): #S'il n'y a qu'un joueur proche
+            self.lastPlayersSelectedRecently = [] #Plus besoin de garder en mémoire les joueurs
+            selectedPlayer = nearestPlayers[0][0]
+        else:
+            alreadySelected = True
+            index = 0
+            while alreadySelected and index<len(nearestPlayers): #Sinon on parcours tous les joueurs, on choisit le premier qu'on a jamais vu
+                joueur = nearestPlayers[index][0]
+                if(joueur in self.lastPlayersSelectedRecently):
+                    index+=1
+                else:
+                    self.lastPlayersSelectedRecently.append(joueur) #On sélectionne ce joueur et on considère qu'il a déjà été vu
+                    selectedPlayer = joueur
+                    alreadySelected = False
+            if(alreadySelected): #Tous les joueurs proches ont déjà été sélectionnés ! On recommence le parcours des joueurs !
+                self.lastPlayersSelectedRecently = [nearestPlayers[0][0]]
+                selectedPlayer = nearestPlayers[0][0]
+        print(self.get_team(selectedPlayer[0]).player_name(selectedPlayer[1]) +" : " +str(selectedPlayer))
 
 
     def _switch_hud_names(self):
