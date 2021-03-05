@@ -1,6 +1,6 @@
-from soccersimulator  import Strategy, SoccerAction, Vector2D
+from soccersimulator  import Strategy, SoccerAction, Vector2D, Simulation
 from .tools import SuperState, Comportement, get_random_SoccerAction
-from .briques import ComportementNaif,ConditionAttaque,ConditionDefenseur,fonceur, defenseur
+from .briques import ComportementNaif, ComportementNew, ConditionAttaque,ConditionDefenseur,fonceur, fonceurNew,defenseur,executeOrder
 import pickle
 
 class RandomStrategy(Strategy):
@@ -47,4 +47,38 @@ class FonceurTestStrategy(Strategy):
         if self.strength is not None:
             return self.strength
         return None 
+
+####Stratégies 2021######################################################################################################################################
+
+class FonceurStrategyWithOrder(Strategy):
+    def __init__(self):
+        Strategy.__init__(self,"FonceurOrder")
+        self.orderList = []
+
+
+    def compute_strategy(self,state,id_team,id_player):
+        I = ComportementNew(SuperState(state, id_team, id_player))
+        if(self.orderList):
+            action = executeOrder(I,self.orderList[0],Simulation.ETAT.states)
+            if(action[1] == True):
+                self.orderList.pop(0)
+                if(self.orderList):
+                    action = executeOrder(I, self.orderList[0], Simulation.ETAT.states)
+            return action[0]
+
+        return fonceurNew(I)
+
+    def addOrder(self,order):
+        self.resetOrders()
+        self.orderList.append(order)
+        if(order[0] == "tire vers"):
+            self.orderList.insert(0,["se déplace vers", "Balle"])
+    def resetOrders(self):
+        self.orderList = []
+
+    def getCurrentOrder(self):
+        if(self.orderList):
+            return [self.orderList[-1][0],self.orderList[-1][1]]
+        else:
+            return None
 

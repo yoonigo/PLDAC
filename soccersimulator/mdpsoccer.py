@@ -186,6 +186,8 @@ class SoccerState(object):
     """ Etat d'un tour du jeu. Contient la balle, l'ensemble des etats des joueurs, le score et
     le numero de l'etat.
     """
+
+
     def __init__(self,states=None,ball=None,**kwargs):
         self.states = states or dict()
         self.ball = ball or Ball()
@@ -195,6 +197,8 @@ class SoccerState(object):
         self.max_steps = kwargs.pop('max_steps', settings.MAX_GAME_STEPS)
         self.goal = kwargs.pop('goal', 0)
         self.__dict__.update(kwargs)
+        ###############################################
+        self.ballControl = 1
 
     def __str__(self):
         return ("Step: %d, %s " %(self.step,str(self.ball)))+\
@@ -254,7 +258,6 @@ class SoccerState(object):
         playersAgility = 0
         playersStrength = 0
         playersAgilityIndex = -1
-        teamQuiALeBallon = 2        ############### PARAMETRE A CREER !!
         self.goal = 0
         if actions:
             #print("########################################################")
@@ -265,7 +268,7 @@ class SoccerState(object):
                     #print(c)
                     shoots.append(c.next(self.ball, actions[k][0], actions[k][1]["speed"]))
                     #print("Shoot value : ", shoots[-1].x, shoots[-1].y)
-                    if((playersAgility < actions[k][1]["agility"] or (playersAgility == actions[k][1]["agility"] and teamQuiALeBallon != k[0])) and (shoots[-1].x != 0.0 or shoots[-1].y != 0.0)):
+                    if((playersAgility < actions[k][1]["agility"] or (playersAgility == actions[k][1]["agility"] and self.ballControl != k[0])) and (shoots[-1].x != 0.0 or shoots[-1].y != 0.0)):
                     #    print("CHANGEMENT", actions[k][1]["agility"])
                         playersAgility = actions[k][1]["agility"]
                         playersStrength = actions[k][1]["strength"]
@@ -354,11 +357,12 @@ class SoccerState(object):
 ###############################################################################
 
 class Player(object):
-    def __init__(self,name=None,strategy=None, type="agility"):
+    def __init__(self,name=None,strategy=None, type="agility", simu=None):
         """
         :param name:
         :param strategy:
         :param type: Trois types de joueurs pour l'instant : valeur possible sont : "agility", "speed", "strength". Les valeurs sont dans settings.py
+        :param simu: la simulation entiere
         """
         self.name = name or ""
         self.strategy = strategy
@@ -382,7 +386,7 @@ class SoccerTeam(object):
     """ Equipe de foot. Comporte une  liste ordonnee de  Player.
     """
 
-    def __init__(self, name=None, players=None, login=None):
+    def __init__(self, name=None, players=None, login=None, simu = None):
         """
         :param name: nom de l'equipe
         :param players: liste de joueur Player(name,strategy)
@@ -398,6 +402,7 @@ class SoccerTeam(object):
         return str(self.name)+"("+self.login+")"+": "+" ".join(str(p) for p in self.players)
     def __repr__(self):
         return self.__str__()
+
 
     def add(self,name,strategy,type = "agility"):
         self.players.append(Player(name,strategy,type))
@@ -446,6 +451,23 @@ class SoccerTeam(object):
         return dict([((id_team, i), (x.strategy.compute_strategy(state.copy(), id_team, i),x.characs)) for i, x in
                      enumerate(self.players) if  hasattr( x.strategy,"compute_strategy")])
 
+    # ------------------------------------------------------------------------------------------------
+    # ------------------------------------------------------------------------------------------------
+    def giveOrder(self, idx,order):
+        """
+        :param idx: numero du joueur
+        """
+        self.players[idx].strategy.addOrder(order)
+
+    def resetOrder(self, idx):
+        self.players[idx].strategy.resetOrders()
+
+    def resetOrders(self):
+        for player in self.players:
+            player.strategy.resetOrders()
+    # ------------------------------------------------------------------------------------------------
+    # ------------------------------------------------------------------------------------------------
+
     @property
     def nb_players(self):
         """
@@ -463,10 +485,13 @@ class SoccerTeam(object):
 
 
 class Simulation(object):
+    ETAT = None
+
     def __init__(self,team1=None,team2=None, max_steps = settings.MAX_GAME_STEPS,initial_state=None,**kwargs):
         self.team1, self.team2 = team1 or SoccerTeam(),team2 or SoccerTeam()
         self.initial_state = initial_state or  SoccerState.create_initial_state(self.team1.nb_players,self.team2.nb_players,max_steps)
         self.state = self.initial_state.copy()
+        Simulation.ETAT = self.state.copy()
         self.max_steps = max_steps
         self.state.max_steps = self.initial_state.max_steps =  max_steps
         self.listeners = SoccerEvents()
@@ -554,6 +579,7 @@ class Simulation(object):
                     return
             #print(actions)
             self.state.apply_actions(actions,strategies)
+            Simulation.ETAT = self.state.copy()
             self.states.append(self.state.copy())
         self.update_round()
     def get_team(self,idx):
@@ -571,6 +597,8 @@ class Simulation(object):
         if not self.replay:
             self.score=dict(self.state.score)
             self.set_state(self.get_initial_state())
+            self.team1.resetOrders()
+            self.team2.resetOrders()
             self.listeners.begin_round(self.team1,self.team2,self.state.copy())
             self.states.append(self.state.copy())
         self.listeners.begin_round(self.team1,self.team2,self.state.copy())

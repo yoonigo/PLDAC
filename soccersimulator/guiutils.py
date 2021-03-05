@@ -9,7 +9,10 @@ import traceback
 import logging
 from .guisettings import *
 
+
 logger = logging.getLogger("soccersimulator.gui")
+
+
 
 def minmax(x, mi=0, ma=1):
     return max(mi, min(ma, x))
@@ -132,6 +135,12 @@ def get_hud_prims():
                              (settings.GAME_WIDTH, settings.GAME_HEIGHT)], HUD_BKG_COLOR)
         return [hud]
 
+def get_orders_hud_prims():
+        orders_hud = Primitive2DGL([(settings.GAME_WIDTH, 0), (settings.GAME_WIDTH, settings.GAME_HEIGHT + HUD_HEIGHT),
+                             (settings.GAME_WIDTH*3/2, settings.GAME_HEIGHT + HUD_HEIGHT),
+                             (settings.GAME_WIDTH*3/2, 0)], HUD_BKG_COLOR)
+        return [orders_hud]
+
 def get_panel_prims():
         panel = Primitive2DGL(
                 [(settings.GAME_WIDTH, settings.GAME_HEIGHT + HUD_HEIGHT), (settings.GAME_WIDTH + PANEL_WIDTH,
@@ -172,7 +181,6 @@ class TextSprite(object):
         finally:
             gl.glPopMatrix()
 
-
 class PlayerSprite(ObjectSprite):
     def __init__(self, name, color, type):
         ObjectSprite.__init__(self)
@@ -211,6 +219,7 @@ class BackgroundSprite(ObjectSprite):
         ObjectSprite.__init__(self)
         self.add_primitives(get_field_prims())
         self.add_primitives(get_hud_prims())
+        self.add_primitives(get_orders_hud_prims())
 
 
 
@@ -266,3 +275,113 @@ class Panel(object):
             for s in self.sprites:
                 s[0].draw()
                 s[1].draw()
+
+class Orders_hud(object):
+    def __init__(self):
+        self.action = "tire vers"
+        self.player = ""
+        self.currentAction = ""
+        self.targets = []
+        self.target = "SaCage"
+        self.sprites = dict()
+        self.sprites["title"] = TextSprite(position=Vector2D(settings.GAME_WIDTH + 5, settings.GAME_HEIGHT),
+                                             color=[255,116,0,255],
+                                             scale=0.07)
+        self.sprites["title"]._label.text = "ORDRE :"
+        self.sprites["instruction1"] = TextSprite(position=Vector2D(settings.GAME_WIDTH + 5, settings.GAME_HEIGHT - 5),
+                                             color=[0,202,255,255],
+                                             scale=0.05)
+        self.sprites["instruction1"]._label.text = "1) Cliquez sur le joueur pour le sélectionner"
+        self.sprites["instruction2"] = TextSprite(position=Vector2D(settings.GAME_WIDTH + 5, settings.GAME_HEIGHT - 10),
+                                             color=[0,202,255,255],
+                                             scale=0.05)
+        self.sprites["instruction2"]._label.text = "2) Appuyez sur A pour changer l'action"
+        self.sprites["instruction3"] = TextSprite(position=Vector2D(settings.GAME_WIDTH + 5, settings.GAME_HEIGHT - 15),
+                                             color=[0,202,255,255],
+                                             scale=0.05)
+        self.sprites["instruction3"]._label.text = "3) Appuyez sur T pour changer de cible"
+
+        self.sprites["player"] = TextSprite(position=Vector2D(settings.GAME_WIDTH + 5, settings.GAME_HEIGHT - 20),
+                                             color=ORDERS_HUD_COLOR,
+                                             scale=0.06)
+        self.sprites["ongoing_order"] = TextSprite(position=Vector2D(settings.GAME_WIDTH + 5, settings.GAME_HEIGHT - 25),
+                                             color=ORDERS_HUD_COLOR,
+                                             scale=0.06)
+        self.sprites["action"] = TextSprite(position=Vector2D(settings.GAME_WIDTH + 5, settings.GAME_HEIGHT - 30),
+                                             color=ORDERS_HUD_COLOR,
+                                             scale=0.06)
+        self.sprites["action"]._label.text = "Choix de l'action : "+self.action
+        self.sprites["target"] = TextSprite(position=Vector2D(settings.GAME_WIDTH + 5, settings.GAME_HEIGHT - 35),
+                                           color=ORDERS_HUD_COLOR,
+                                           scale=0.06)
+        self.sprites["target"]._label.text = "Choix de la cible : "+self.target
+
+        self.sprites["ok"] = TextSprite(position=Vector2D(settings.GAME_WIDTH*6/5-15, settings.GAME_HEIGHT - 55),
+                                           color=ORDERS_HUD_COLOR,
+                                           scale=0.06)
+        self.sprites["ok"]._label.text = "AJOUTER"
+        self.rectangle = pyglet.shapes.Rectangle(settings.GAME_WIDTH+27-15, settings.GAME_HEIGHT - 57, width=21, height=6.5)
+        self.rectangle.opacity = 120
+        #######################################
+        self.sprites["ok2"] = TextSprite(position=Vector2D(settings.GAME_WIDTH*6/5+10, settings.GAME_HEIGHT - 55),
+                                        color=ORDERS_HUD_COLOR,
+                                        scale=0.06)
+        self.sprites["ok2"]._label.text = "VIDER"
+        self.rectangle2 = pyglet.shapes.Rectangle(settings.GAME_WIDTH+27+10, settings.GAME_HEIGHT - 57, width=15.5,
+                                                 height=6.5)
+        self.rectangle2.opacity = 120
+        #okImg = pyglet.image.load("ok.png")
+        #ok = pyglet.sprite.Sprite(okImg, settings.GAME_WIDTH*6/5, settings.GAME_HEIGHT - 55)
+        #ok.scale = 0.05
+
+    def set_val(self, **kwargs):
+        for k, v in kwargs.items():
+            if k == "player":
+                self.sprites[k]._label.text = "Joueur sélectionné : "+v
+                self.player = v
+            elif k == "ongoing_order": #A CONNECTE AU RESTE (pour l'instant c'est juste une string)
+                self.sprites[k]._label.text = "Action en cours : "+v
+            elif k == "target":
+                self.targets = v
+
+    def change_target(self):
+        print("#################################")
+        print(self.targets)
+        print(self.target)
+        for i in range(0, len(self.targets)):
+            if self.target == self.targets[i]:
+                print(i)
+                if i == len(self.targets)-1:
+                    self.target = self.targets[0]
+                else:
+                    self.target = self.targets[i+1]
+                self.sprites["target"]._label.text = "Choix de la cible : "+self.target
+                break
+        print(self.target)
+
+    def get_target(self):
+        return self.target
+
+    def change_action(self):
+        if self.action == "tire vers":
+            self.action = "se déplace vers"
+        else:
+            self.action = "tire vers"
+        self.sprites["action"]._label.text = "Choix de l'action : "+self.action
+
+    def change_currentAction(self,currentAction):
+        print(currentAction)
+        self.currentAction = currentAction
+        self.sprites["ongoing_order"]._label.text = "Action en cours : " + self.currentAction
+
+    def get_action(self):
+        return self.action
+
+    def get_order(self):
+        return [self.action, self.target]
+
+    def draw(self):
+        for s in self.sprites.values():
+            s.draw()
+        self.rectangle.draw()
+        self.rectangle2.draw()

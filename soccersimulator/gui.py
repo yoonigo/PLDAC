@@ -33,11 +33,16 @@ class SimuGUI(pyglet.window.Window):
         pyglet.window.key.NUM_SUBTRACT: lambda w: w._decrease_fps(),
         pyglet.window.key.BACKSPACE: lambda w: w._switch_manual_step_flag(),
         pyglet.window.key.SPACE: lambda w: w._switch_manual_step(),
+        ####
+        pyglet.window.key.A: lambda w: w.selectAction(),
+        pyglet.window.key.T: lambda w: w.selectTarget(),
+        ####
     }
 
-    def __init__(self,simu=None,width=1200,height=800):
+    def __init__(self,simu=None,width=1500,height=800):
         pyglet.window.Window.__init__(self, width=width, height=height, resizable=True)
         self.lastPlayersSelectedRecently = [] #TEMPORAIRE IL FAUT DECIDER D'OU LE METTRE
+        self.selectedPlayer = [(1,0),None]
         self.set_size(width, height)
         self.focus()
         self.clear()
@@ -49,6 +54,9 @@ class SimuGUI(pyglet.window.Window):
         self._waiting_key = False
         self._hud_names = True
         self.hud = Hud()
+        ###
+        self.orders_hud = Orders_hud()
+        ###
         pyglet.clock.schedule_interval(self.update, 1. / 25)
         self.set(simu)
         if simu:
@@ -81,48 +89,72 @@ class SimuGUI(pyglet.window.Window):
         else:
              self._mode_next = self.MANUAL
 
+    def selectAction(self):
+        self.orders_hud.change_action()
+
+    def selectTarget(self):
+        self.orders_hud.change_target()
+
+    def doOrder(self):
+        order = self.orders_hud.get_order()
+        team = self.get_team(self.selectedPlayer[0][0])
+        for t in [1,2]:
+            for i in range(self.get_team(t).nb_players):
+                if(self.get_team(t).player_name(i) == order[1]):
+                    order[1] = (t,i)
+        team.giveOrder(self.selectedPlayer[0][1],order)
+        self.selectedPlayer[1] = order
+
     def on_mouse_press(self,x,y,button,modifiers):
         lengthWindow, heightWindow = self.get_size() #Taille de l'interface en pixel
-        lengthField, heightField = lengthWindow,heightWindow*0.9 #Taille du terrain de jeu en pixel
-        xTrad, yTrad = (x*settings.GAME_WIDTH/lengthField,y*settings.GAME_HEIGHT/heightField) #Traduction de la position du pixel du clic de la souris en position sur le terrain
 
-        nearestPlayers = [] #Liste des joueurs proches de la souris
-        for k, v in self.state.players:
-            newValue = self.state.player_state(k,v).position.distance(Vector2D(xTrad, yTrad))
-            if(not nearestPlayers): #Si la liste est vide, le premier joueur est le plus proche
-                nearestPlayers.append(((k,v),newValue))
-            else: #Ensuite tous les joueurs seront comparées la liste sera completé (indice 0 = le plus proche)
-                index = 0
-                isNearest = False
-                while(index<len(nearestPlayers) and not isNearest):
-                    if(newValue < nearestPlayers[index][1]):
-                        isNearest = True
-                        nearestPlayers.insert(index,((k,v),newValue))
-                    else:
-                        index+=1
-                if(not isNearest):
-                    nearestPlayers.append(((k,v),newValue))
-        for i in range(len(nearestPlayers)-1,0,-1): #Les joueurs étant 'loin' ne sont plus considéré
-            if(nearestPlayers[i][1]-nearestPlayers[0][1]>1.5):
-                nearestPlayers.pop(i)
-        if(len(nearestPlayers) == 1): #S'il n'y a qu'un joueur proche
-            self.lastPlayersSelectedRecently = [] #Plus besoin de garder en mémoire les joueurs
-            selectedPlayer = nearestPlayers[0][0]
+        x_n, y_n = (x * (settings.GAME_WIDTH + ORDERS_HUD_WIDTH) / lengthWindow, y * (settings.GAME_HEIGHT + HUD_HEIGHT) / heightWindow)
+        if (x_n >= settings.GAME_WIDTH + 12 and x_n <= settings.GAME_WIDTH + 33.3) and ((y_n >= settings.GAME_HEIGHT - 57) and (y_n <= settings.GAME_HEIGHT - 50.5)):
+            self.doOrder()
+        elif(x_n >= settings.GAME_WIDTH + 37 and x_n <= settings.GAME_WIDTH + 53) and ((y_n >= settings.GAME_HEIGHT - 57) and (y_n <= settings.GAME_HEIGHT - 50.5)):
+            team = self.get_team(self.selectedPlayer[0][0])
+            team.resetOrder(self.selectedPlayer[0][1])
         else:
-            alreadySelected = True
-            index = 0
-            while alreadySelected and index<len(nearestPlayers): #Sinon on parcours tous les joueurs, on choisit le premier qu'on a jamais vu
-                joueur = nearestPlayers[index][0]
-                if(joueur in self.lastPlayersSelectedRecently):
-                    index+=1
+            lengthField, heightField = lengthWindow*105/150,heightWindow*0.9 #Taille du terrain de jeu en pixel (105/150 et 0.9 correspondent au ratio de la taille des HUD)
+            xTrad, yTrad = (x*settings.GAME_WIDTH/lengthField,y*settings.GAME_HEIGHT/heightField) #Traduction de la position du pixel du clic de la souris en position sur le terrain
+            if(xTrad < settings.GAME_WIDTH + 1):
+                nearestPlayers = [] #Liste des joueurs proches de la souris
+                for k, v in self.state.players:
+                    newValue = self.state.player_state(k,v).position.distance(Vector2D(xTrad, yTrad))
+                    if(not nearestPlayers): #Si la liste est vide, le premier joueur est le plus proche
+                        nearestPlayers.append([(k,v),newValue])
+                    else: #Ensuite tous les joueurs seront comparées la liste sera completé (indice 0 = le plus proche)
+                        index = 0
+                        isNearest = False
+                        while(index<len(nearestPlayers) and not isNearest):
+                            if(newValue < nearestPlayers[index][1]):
+                                isNearest = True
+                                nearestPlayers.insert(index,[(k,v),newValue])
+                            else:
+                                index+=1
+                        if(not isNearest):
+                            nearestPlayers.append([(k,v),newValue])
+                for i in range(len(nearestPlayers)-1,0,-1): #Les joueurs étant 'loin' ne sont plus considéré
+                    if(nearestPlayers[i][1]-nearestPlayers[0][1]>1.5):
+                        nearestPlayers.pop(i)
+                if(len(nearestPlayers) == 1): #S'il n'y a qu'un joueur proche
+                    self.lastPlayersSelectedRecently = [] #Plus besoin de garder en mémoire les joueurs
+                    selectedPlayer = nearestPlayers[0][0]
                 else:
-                    self.lastPlayersSelectedRecently.append(joueur) #On sélectionne ce joueur et on considère qu'il a déjà été vu
-                    selectedPlayer = joueur
-                    alreadySelected = False
-            if(alreadySelected): #Tous les joueurs proches ont déjà été sélectionnés ! On recommence le parcours des joueurs !
-                self.lastPlayersSelectedRecently = [nearestPlayers[0][0]]
-                selectedPlayer = nearestPlayers[0][0]
-        print(self.get_team(selectedPlayer[0]).player_name(selectedPlayer[1]) +" : " +str(selectedPlayer))
+                    alreadySelected = True
+                    index = 0
+                    while alreadySelected and index<len(nearestPlayers): #Sinon on parcours tous les joueurs, on choisit le premier qu'on a jamais vu
+                        joueur = nearestPlayers[index][0]
+                        if(joueur in self.lastPlayersSelectedRecently):
+                            index+=1
+                        else:
+                            self.lastPlayersSelectedRecently.append(joueur) #On sélectionne ce joueur et on considère qu'il a déjà été vu
+                            selectedPlayer = joueur
+                            alreadySelected = False
+                    if(alreadySelected): #Tous les joueurs proches ont déjà été sélectionnés ! On recommence le parcours des joueurs !
+                        self.lastPlayersSelectedRecently = [nearestPlayers[0][0]]
+                        selectedPlayer = nearestPlayers[0][0]
+                self.selectedPlayer = [selectedPlayer,self.get_team(selectedPlayer[0]).strategy(selectedPlayer[1]).getCurrentOrder()]
 
 
     def _switch_hud_names(self):
@@ -164,6 +196,19 @@ class SimuGUI(pyglet.window.Window):
             team2 = "%s %s - %s" % (self.get_team(2).name, self.get_team(2).login, self.get_score(2))
         ongoing = "Round : %d/%d" % (self.state.step, self.get_max_steps())
         self.hud.set_val(team1=team1, team2=team2, ongoing=ongoing)
+        ######################
+        targets = ["Balle","CageAdverse","SaCage"]
+        for k, v in self.state.players:
+            name_p = self.get_team(k).player_name(v)
+            targets.append(name_p)
+        currentAction = "Fonceur"
+        if(self.selectedPlayer[1] != None):
+            if (type(self.selectedPlayer[1][1]) == tuple):
+                currentAction = self.selectedPlayer[1][0] + " " + self.get_team(self.selectedPlayer[1][1][0]).player_name(self.selectedPlayer[1][1][1])
+            else:
+                currentAction = self.selectedPlayer[1][0] + " " +self.selectedPlayer[1][1]
+        self.orders_hud.set_val(player=str(self.get_team(self.selectedPlayer[0][0]).player_name(self.selectedPlayer[0][1])), ongoing_order=currentAction, target=targets)
+        ######################
         for k in self.state.players:
             self._sprites[k].position = self.state.player_state(k[0], k[1]).position
             self._sprites[k].vitesse= self.state.player_state(k[0], k[1]).vitesse
@@ -183,11 +228,13 @@ class SimuGUI(pyglet.window.Window):
         self._sprites = dict()
         self._background = BackgroundSprite()
         self.hud = Hud()
+        self.orders_hud = Orders_hud()
         try:
             self.simu.listeners -= self
         except Exception:
             pass
         self.simu = None
+
     def draw(self):
         try:
             if self.state:
@@ -197,6 +244,7 @@ class SimuGUI(pyglet.window.Window):
                 for d in self._sprites.values():
                     d.draw()
                 self.hud.draw()
+                self.orders_hud.draw()
         except Exception as e:
             time.sleep(0.0001)
             logger.error("%s\n\t%s" %(e, traceback.format_exc()))
@@ -234,7 +282,7 @@ class SimuGUI(pyglet.window.Window):
         try:
             gl.glMatrixMode(gl.GL_PROJECTION)
             gl.glLoadIdentity()
-            gl.gluOrtho2D(0, settings.GAME_WIDTH, 0, settings.GAME_HEIGHT + HUD_HEIGHT)
+            gl.gluOrtho2D(0, settings.GAME_WIDTH + ORDERS_HUD_WIDTH, 0, settings.GAME_HEIGHT + HUD_HEIGHT)
             gl.glMatrixMode(gl.GL_MODELVIEW)
             gl.glLoadIdentity()
         except Exception as e:
