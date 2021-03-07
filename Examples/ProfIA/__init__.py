@@ -1,4 +1,4 @@
-from .strategies import DefenseurStrategy,FonceurStrategy,RandomStrategy, FonceurTestStrategy
+from .strategies import FonceurStrategyWithOrder,DefenseurStrategy,FonceurStrategy,RandomStrategy, FonceurTestStrategy
 from .optimization import ParamSearch
 from soccersimulator import SoccerTeam
 from .tools import SuperState
