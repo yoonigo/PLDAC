@@ -117,17 +117,27 @@ def get_field_prims():
         field = Primitive2DGL([(0, 0), (0, settings.GAME_HEIGHT),
                                (settings.GAME_WIDTH, settings.GAME_HEIGHT),
                                (settings.GAME_WIDTH, 0)], FIELD_COLOR)
-        bandes_1 = Primitive2DGL([(0, 0), (settings.GAME_WIDTH, 0),
-                                  (settings.GAME_WIDTH, settings.GAME_HEIGHT),
-                                  (0, settings.GAME_HEIGHT), (0, 0)], LINE_COLOR, gl.GL_LINE_STRIP)
-        bandes_2 = Primitive2DGL([(settings.GAME_WIDTH / 2, settings.GAME_HEIGHT),
-                                  (settings.GAME_WIDTH / 2, 0)], LINE_COLOR, gl.GL_LINE_STRIP)
+        #bandes_1 = Primitive2DGL([(0, 0), (settings.GAME_WIDTH, 0), (settings.GAME_WIDTH, settings.GAME_HEIGHT), (0, settings.GAME_HEIGHT), (0, 0)], LINE_COLOR, gl.GL_LINE_STRIP)
+        bandes_2 = Primitive2DGL([(settings.GAME_WIDTH / 2, settings.GAME_HEIGHT),(settings.GAME_WIDTH / 2, 0)], LINE_COLOR, gl.GL_LINE_STRIP)
+        #########################################################################################################################################
+        cornerSize = 1.5
+        cornerTL = Primitive2DGL([(0, settings.GAME_HEIGHT),(cornerSize, settings.GAME_HEIGHT),(0, settings.GAME_HEIGHT-cornerSize)], LINE_COLOR)
+        cornerBL = Primitive2DGL([(0, 0), (cornerSize, 0), (0, cornerSize)], LINE_COLOR)
+        cornerTR = Primitive2DGL([(settings.GAME_WIDTH, settings.GAME_HEIGHT), (settings.GAME_WIDTH, settings.GAME_HEIGHT-cornerSize), (settings.GAME_WIDTH-cornerSize, settings.GAME_HEIGHT)], LINE_COLOR)
+        cornerBR = Primitive2DGL([(settings.GAME_WIDTH, 0), (settings.GAME_WIDTH, cornerSize), (settings.GAME_WIDTH-cornerSize, 0)], LINE_COLOR)
+        topBotWidth = 1
+        topBotHeigth = 0.8
+        middleSide = 0.8
+        middleT = Primitive2DGL([(settings.GAME_WIDTH/2-topBotWidth, settings.GAME_HEIGHT), (settings.GAME_WIDTH/2-topBotWidth, settings.GAME_HEIGHT-topBotHeigth), (settings.GAME_WIDTH/2+topBotWidth, settings.GAME_HEIGHT-topBotHeigth), (settings.GAME_WIDTH/2+topBotWidth, settings.GAME_HEIGHT)], LINE_COLOR)
+        middleB = Primitive2DGL([(settings.GAME_WIDTH/2-topBotWidth, topBotHeigth), (settings.GAME_WIDTH/2-topBotWidth, 0), (settings.GAME_WIDTH/2+topBotWidth, 0), (settings.GAME_WIDTH/2+topBotWidth, topBotHeigth)], LINE_COLOR)
+        middle = Primitive2DGL([(settings.GAME_WIDTH/2-middleSide, settings.GAME_HEIGHT/2-middleSide), (settings.GAME_WIDTH/2-middleSide, settings.GAME_HEIGHT/2+middleSide), (settings.GAME_WIDTH/2+middleSide, settings.GAME_HEIGHT/2+middleSide), (settings.GAME_WIDTH/2+middleSide, settings.GAME_HEIGHT/2-middleSide)], LINE_COLOR)
+        #########################################################################################################################################
         y1 = (settings.GAME_HEIGHT - settings.GAME_GOAL_HEIGHT) / 2
         y2 = (settings.GAME_HEIGHT + settings.GAME_GOAL_HEIGHT) / 2
         xend = settings.GAME_WIDTH
         goals_1 = Primitive2DGL([(0, y1), (0, y2), (2, y2), (2, y1)], GOAL_COLOR)
         goals_2 = Primitive2DGL([(xend, y2), (xend, y1), (xend - 2, y1), (xend - 2, y2)], GOAL_COLOR)
-        return [field, bandes_1, bandes_2, goals_1, goals_2]
+        return [field, bandes_2, cornerTL, cornerBL, cornerTR, cornerBR, middleT, middleB, middle, goals_1, goals_2]
 
 def get_hud_prims():
         hud = Primitive2DGL([(0, settings.GAME_HEIGHT), (0, settings.GAME_HEIGHT + HUD_HEIGHT),
@@ -273,7 +283,7 @@ class Panel(object):
     def draw(self):
         if self._is_ready:
             for s in self.sprites:
-                s[0].draw()
+                #s[0].draw()
                 s[1].draw()
 
 class Orders_hud(object):
@@ -281,8 +291,11 @@ class Orders_hud(object):
         self.action = "tire vers"
         self.player = ""
         self.currentAction = ""
-        self.targets = []
+        #self.targets = []
         self.target = "SaCage"
+        self.target2 = "SaCage"
+        self.targetingType = 0
+        self.mixageTargetValue = 0.5
         self.sprites = dict()
         self.sprites["title"] = TextSprite(position=Vector2D(settings.GAME_WIDTH + 5, settings.GAME_HEIGHT),
                                              color=[255,116,0,255],
@@ -299,7 +312,7 @@ class Orders_hud(object):
         self.sprites["instruction3"] = TextSprite(position=Vector2D(settings.GAME_WIDTH + 5, settings.GAME_HEIGHT - 15),
                                              color=[0,202,255,255],
                                              scale=0.05)
-        self.sprites["instruction3"]._label.text = "3) Appuyez sur T pour changer de cible"
+        self.sprites["instruction3"]._label.text = "3) Appuyez sur R pour changer de ciblage"
 
         self.sprites["player"] = TextSprite(position=Vector2D(settings.GAME_WIDTH + 5, settings.GAME_HEIGHT - 20),
                                              color=ORDERS_HUD_COLOR,
@@ -315,6 +328,14 @@ class Orders_hud(object):
                                            color=ORDERS_HUD_COLOR,
                                            scale=0.06)
         self.sprites["target"]._label.text = "Choix de la cible : "+self.target
+        self.sprites["target2"] = TextSprite(position=Vector2D(settings.GAME_WIDTH + 5, settings.GAME_HEIGHT - 40),
+                                            color=ORDERS_HUD_COLOR,
+                                            scale=0.06)
+        self.sprites["target2"]._label.text = ""
+        self.sprites["targetMixer"] = TextSprite(position=Vector2D(settings.GAME_WIDTH + 5, settings.GAME_HEIGHT - 45),
+                                             color=ORDERS_HUD_COLOR,
+                                             scale=0.06)
+        self.sprites["targetMixer"]._label.text = ""
 
         self.sprites["ok"] = TextSprite(position=Vector2D(settings.GAME_WIDTH*6/5-15, settings.GAME_HEIGHT - 55),
                                            color=ORDERS_HUD_COLOR,
@@ -334,6 +355,7 @@ class Orders_hud(object):
         #ok = pyglet.sprite.Sprite(okImg, settings.GAME_WIDTH*6/5, settings.GAME_HEIGHT - 55)
         #ok.scale = 0.05
 
+
     def set_val(self, **kwargs):
         for k, v in kwargs.items():
             if k == "player":
@@ -342,22 +364,38 @@ class Orders_hud(object):
             elif k == "ongoing_order": #A CONNECTE AU RESTE (pour l'instant c'est juste une string)
                 self.sprites[k]._label.text = "Action en cours : "+v
             elif k == "target":
-                self.targets = v
+                #self.targets = v
+                self.target = v
+                ajout = ""
+                if(self.targetingType == 1):
+                    ajout = "A "
+                self.sprites["target"]._label.text = "Choix de la cible "+ ajout + ": " + self.target
+            elif k == "target2":
+                if(self.targetingType == 1):
+                    self.target2 = v
+                    self.sprites["target2"]._label.text = "Choix de la cible B : " + self.target2
 
-    def change_target(self):
-        print("#################################")
-        print(self.targets)
-        print(self.target)
-        for i in range(0, len(self.targets)):
-            if self.target == self.targets[i]:
-                print(i)
-                if i == len(self.targets)-1:
-                    self.target = self.targets[0]
-                else:
-                    self.target = self.targets[i+1]
-                self.sprites["target"]._label.text = "Choix de la cible : "+self.target
-                break
-        print(self.target)
+    def change_targeting(self):
+        if(self.targetingType == 0):
+            self.sprites["target"]._label.text = "Choix de la cible : "+self.target
+            self.sprites["target2"]._label.text = ""
+            self.sprites["targetMixer"]._label.text = ""
+        else:
+            self.sprites["target"]._label.text = "Choix de la cible A : " + self.target
+            self.sprites["target2"]._label.text = "Choix de la cible B : " + self.target2
+            self.sprites["targetMixer"]._label.text = "Valeur du mixage (A: 1-0 :B) : " + str(self.mixageTargetValue)
+
+    def change_mixage_target_value(self, side):
+        if(self.targetingType == 1):
+            if(side>=0):
+                self.mixageTargetValue = round(0.1+self.mixageTargetValue,1)
+                if(self.mixageTargetValue >= 0.95):
+                    self.mixageTargetValue = 0.1
+            else:
+                self.mixageTargetValue = round(-0.1+self.mixageTargetValue,1)
+                if (self.mixageTargetValue <= 0.05):
+                    self.mixageTargetValue = 0.9
+            self.sprites["targetMixer"]._label.text = "Valeur du mixage (A: 1-0 :B) : " + str(self.mixageTargetValue)
 
     def get_target(self):
         return self.target
@@ -378,7 +416,10 @@ class Orders_hud(object):
         return self.action
 
     def get_order(self):
-        return [self.action, self.target]
+        if(self.targetingType == 0):
+            return [self.action, self.target]
+        elif(self.targetingType == 1):
+            return [self.action, self.target, self.target2, self.mixageTargetValue]
 
     def draw(self):
         for s in self.sprites.values():

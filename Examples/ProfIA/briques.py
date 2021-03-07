@@ -63,7 +63,7 @@ class ComportementNew(Comportement):
     RUN_COEF = maxPlayerAcceleration
     SHOOT_COEF = maxPlayerShoot
     LOW_SHOOT_COEF = maxPlayerShoot / 3.
-    COEF_BALL = 1
+    COEF_BALL = 1.5
 
     def __init__(self,state):
         super(ComportementNew,self).__init__(state)
@@ -99,11 +99,30 @@ def executeOrder(I,order, state):
             return I.my_goal
         if (cible == "Balle"):
             return I.ball_p
+        if (cible == "CornerTopLeft"):
+            return I.cornerTopLeft
+        if (cible == "CornerTopRight"):
+            return I.cornerTopRight
+        if (cible == "CornerBottomLeft"):
+            return I.cornerBottomLeft
+        if (cible == "CornerBottomRight"):
+            return I.cornerBottomRight
+        if (cible == "MiddleTop"):
+            return I.middleTop
+        if (cible == "MiddleBottom"):
+            return I.middleBottom
+        if (cible == "Middle"):
+            return I.middle
         else:
             return state[cible].position
 
-
-    cible = getCible(order[1])
+    if(len(order) == 2): #TargetingType = 0
+        cible = getCible(order[1])
+    else: #TargetingType = 1
+        print(order)
+        cibleA = getCible(order[1])
+        cibleB = getCible(order[2])
+        cible = cibleA.mixage(cibleB,order[3])
     if(order[0] == "se déplace vers"):
         actionMustStop = I.proximiteAtteinte(cible)
         return (I.allerVers(cible),actionMustStop)

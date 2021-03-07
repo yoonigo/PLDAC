@@ -11,6 +11,8 @@ from . import settings
 from .guiutils import *
 import logging
 from .guisettings import *
+from .settings import GAME_HEIGHT, GAME_WIDTH
+
 
 FPS = 50.
 FPS_MOD = 5.
@@ -35,14 +37,14 @@ class SimuGUI(pyglet.window.Window):
         pyglet.window.key.SPACE: lambda w: w._switch_manual_step(),
         ####
         pyglet.window.key.A: lambda w: w.selectAction(),
-        pyglet.window.key.T: lambda w: w.selectTarget(),
+        pyglet.window.key.R: lambda w: w.selectTargeting(),
+        pyglet.window.key.Z: lambda w: w.lowerTargetingMixage(),
+        pyglet.window.key.E: lambda w: w.upperTargetingMixage()
         ####
     }
 
     def __init__(self,simu=None,width=1500,height=800):
         pyglet.window.Window.__init__(self, width=width, height=height, resizable=True)
-        self.lastPlayersSelectedRecently = [] #TEMPORAIRE IL FAUT DECIDER D'OU LE METTRE
-        self.selectedPlayer = [(1,0),None]
         self.set_size(width, height)
         self.focus()
         self.clear()
@@ -54,8 +56,14 @@ class SimuGUI(pyglet.window.Window):
         self._waiting_key = False
         self._hud_names = True
         self.hud = Hud()
-        ###
+        ###################################################################################
         self.orders_hud = Orders_hud()
+        self.lastPlayersSelectedRecently = []  # TEMPORAIRE IL FAUT DECIDER D'OU LE METTRE
+        self.selectedPlayer = [(1, 0), None]
+        self.lastTargetsSelectedRecently = []  # TEMPORAIRE IL FAUT DECIDER D'OU LE METTRE
+        self.selectedTarget = "SaCage"
+        self.selectedTarget2 = "SaCage"
+        ###################################################################################
         ###
         pyglet.clock.schedule_interval(self.update, 1. / 25)
         self.set(simu)
@@ -92,8 +100,15 @@ class SimuGUI(pyglet.window.Window):
     def selectAction(self):
         self.orders_hud.change_action()
 
-    def selectTarget(self):
-        self.orders_hud.change_target()
+    def selectTargeting(self):
+        self.orders_hud.targetingType = 1 - self.orders_hud.targetingType
+        self.orders_hud.change_targeting()
+
+    def lowerTargetingMixage(self):
+        self.orders_hud.change_mixage_target_value(-1)
+
+    def upperTargetingMixage(self):
+        self.orders_hud.change_mixage_target_value(1)
 
     def doOrder(self):
         order = self.orders_hud.get_order()
@@ -102,59 +117,131 @@ class SimuGUI(pyglet.window.Window):
             for i in range(self.get_team(t).nb_players):
                 if(self.get_team(t).player_name(i) == order[1]):
                     order[1] = (t,i)
+                if(len(order) == 4):
+                    if(self.get_team(t).player_name(i) == order[2]):
+                        order[2] = (t,i)
         team.giveOrder(self.selectedPlayer[0][1],order)
         self.selectedPlayer[1] = order
 
     def on_mouse_press(self,x,y,button,modifiers):
         lengthWindow, heightWindow = self.get_size() #Taille de l'interface en pixel
-
         x_n, y_n = (x * (settings.GAME_WIDTH + ORDERS_HUD_WIDTH) / lengthWindow, y * (settings.GAME_HEIGHT + HUD_HEIGHT) / heightWindow)
-        if (x_n >= settings.GAME_WIDTH + 12 and x_n <= settings.GAME_WIDTH + 33.3) and ((y_n >= settings.GAME_HEIGHT - 57) and (y_n <= settings.GAME_HEIGHT - 50.5)):
-            self.doOrder()
-        elif(x_n >= settings.GAME_WIDTH + 37 and x_n <= settings.GAME_WIDTH + 53) and ((y_n >= settings.GAME_HEIGHT - 57) and (y_n <= settings.GAME_HEIGHT - 50.5)):
-            team = self.get_team(self.selectedPlayer[0][0])
-            team.resetOrder(self.selectedPlayer[0][1])
-        else:
-            lengthField, heightField = lengthWindow*105/150,heightWindow*0.9 #Taille du terrain de jeu en pixel (105/150 et 0.9 correspondent au ratio de la taille des HUD)
-            xTrad, yTrad = (x*settings.GAME_WIDTH/lengthField,y*settings.GAME_HEIGHT/heightField) #Traduction de la position du pixel du clic de la souris en position sur le terrain
-            if(xTrad < settings.GAME_WIDTH + 1):
+
+        if(x_n >= settings.GAME_WIDTH): #Selection dans Order_Hud
+            if (x_n >= settings.GAME_WIDTH + 12 and x_n <= settings.GAME_WIDTH + 33.3) and ((y_n >= settings.GAME_HEIGHT - 57) and (y_n <= settings.GAME_HEIGHT - 50.5)):
+                self.doOrder()
+            elif(x_n >= settings.GAME_WIDTH + 37 and x_n <= settings.GAME_WIDTH + 53) and ((y_n >= settings.GAME_HEIGHT - 57) and (y_n <= settings.GAME_HEIGHT - 50.5)):
+                team = self.get_team(self.selectedPlayer[0][0])
+                team.resetOrder(self.selectedPlayer[0][1])
+        else: #Selection sur le terrain
+            if(button == 1):
                 nearestPlayers = [] #Liste des joueurs proches de la souris
                 for k, v in self.state.players:
-                    newValue = self.state.player_state(k,v).position.distance(Vector2D(xTrad, yTrad))
-                    if(not nearestPlayers): #Si la liste est vide, le premier joueur est le plus proche
-                        nearestPlayers.append([(k,v),newValue])
-                    else: #Ensuite tous les joueurs seront comparées la liste sera completé (indice 0 = le plus proche)
-                        index = 0
-                        isNearest = False
-                        while(index<len(nearestPlayers) and not isNearest):
-                            if(newValue < nearestPlayers[index][1]):
-                                isNearest = True
-                                nearestPlayers.insert(index,[(k,v),newValue])
-                            else:
-                                index+=1
-                        if(not isNearest):
+                    newValue = self.state.player_state(k,v).position.distance(Vector2D(x_n, y_n))
+                    if(newValue <= DISTANCEMAXALASOURIS): #Si le joueur dépasse la distance maximale fixée, on ne le considère pas
+                        if(not nearestPlayers): #Si la liste est vide, le premier joueur est le plus proche
                             nearestPlayers.append([(k,v),newValue])
-                for i in range(len(nearestPlayers)-1,0,-1): #Les joueurs étant 'loin' ne sont plus considéré
-                    if(nearestPlayers[i][1]-nearestPlayers[0][1]>1.5):
-                        nearestPlayers.pop(i)
-                if(len(nearestPlayers) == 1): #S'il n'y a qu'un joueur proche
-                    self.lastPlayersSelectedRecently = [] #Plus besoin de garder en mémoire les joueurs
-                    selectedPlayer = nearestPlayers[0][0]
-                else:
-                    alreadySelected = True
-                    index = 0
-                    while alreadySelected and index<len(nearestPlayers): #Sinon on parcours tous les joueurs, on choisit le premier qu'on a jamais vu
-                        joueur = nearestPlayers[index][0]
-                        if(joueur in self.lastPlayersSelectedRecently):
-                            index+=1
-                        else:
-                            self.lastPlayersSelectedRecently.append(joueur) #On sélectionne ce joueur et on considère qu'il a déjà été vu
-                            selectedPlayer = joueur
-                            alreadySelected = False
-                    if(alreadySelected): #Tous les joueurs proches ont déjà été sélectionnés ! On recommence le parcours des joueurs !
-                        self.lastPlayersSelectedRecently = [nearestPlayers[0][0]]
+                        else: #La liste sera ordonnée et completée incrémentalement (indice 0 = le plus proche)
+                            index = 0
+                            isNearest = False
+                            while(index<len(nearestPlayers) and not isNearest):
+                                if(newValue < nearestPlayers[index][1]):
+                                    isNearest = True
+                                    nearestPlayers.insert(index,[(k,v),newValue])
+                                else:
+                                    index+=1
+                            if(not isNearest):
+                                nearestPlayers.append([(k,v),newValue])
+                if(nearestPlayers): #Si au moins un joueur est suffisament proche
+                    if(len(nearestPlayers) == 1): #S'il n'y a qu'un joueur proche
+                        self.lastPlayersSelectedRecently = [] #Plus besoin de garder en mémoire les joueurs
                         selectedPlayer = nearestPlayers[0][0]
-                self.selectedPlayer = [selectedPlayer,self.get_team(selectedPlayer[0]).strategy(selectedPlayer[1]).getCurrentOrder()]
+                    else:
+                        alreadySelected = True
+                        index = 0
+                        while alreadySelected and index<len(nearestPlayers): #Sinon on parcours tous les joueurs, on choisit le premier qu'on a jamais vu
+                            joueur = nearestPlayers[index][0]
+                            if(joueur in self.lastPlayersSelectedRecently):
+                                index+=1
+                            else:
+                                self.lastPlayersSelectedRecently.append(joueur) #On sélectionne ce joueur et on considère qu'il a déjà été vu
+                                selectedPlayer = joueur
+                                alreadySelected = False
+                        if(alreadySelected): #Tous les joueurs proches ont déjà été sélectionnés ! On recommence le parcours des joueurs !
+                            self.lastPlayersSelectedRecently = [nearestPlayers[0][0]]
+                            selectedPlayer = nearestPlayers[0][0]
+                    self.selectedPlayer = [selectedPlayer,self.get_team(selectedPlayer[0]).strategy(selectedPlayer[1]).getCurrentOrder()]
+            elif(button == 4 or button == 2):
+                nearestTargets = []  # Liste des cibles proches de la souris
+                for k, v in self.state.players:
+                    newValue = self.state.player_state(k, v).position.distance(Vector2D(x_n, y_n))
+                    if (newValue <= DISTANCEMAXALASOURIS):  # Si le joueur dépasse la distance maximale fixée, on ne le considère pas
+                        if (not nearestTargets):  # Si la liste est vide, le premier joueur est le plus proche
+                            nearestTargets.append([(k, v), newValue])
+                        else:  # La liste sera ordonnée et completée incrémentalement (indice 0 = le plus proche)
+                            index = 0
+                            isNearest = False
+                            while (index < len(nearestTargets) and not isNearest):
+                                if (newValue < nearestTargets[index][1]):
+                                    isNearest = True
+                                    nearestTargets.insert(index, [(k, v), newValue])
+                                else:
+                                    index += 1
+                            if (not isNearest):
+                                nearestTargets.append([(k, v), newValue])
+                otherTargets = [("Balle",self.state.ball.position.distance(Vector2D(x_n, y_n)))]
+                otherTargets.append(("CornerTopLeft",Vector2D(0,GAME_HEIGHT).distance(Vector2D(x_n, y_n))))
+                otherTargets.append(("CornerTopRight", Vector2D(GAME_WIDTH,GAME_HEIGHT).distance(Vector2D(x_n, y_n))))
+                otherTargets.append(("CornerBottomLeft", Vector2D(0, 0).distance(Vector2D(x_n, y_n))))
+                otherTargets.append(("CornerBottomRight", Vector2D(GAME_WIDTH, 0).distance(Vector2D(x_n, y_n))))
+                otherTargets.append(("MiddleTop", Vector2D(GAME_WIDTH/2, GAME_HEIGHT).distance(Vector2D(x_n, y_n))))
+                otherTargets.append(("MiddleBottom", Vector2D(GAME_WIDTH/2, 0).distance(Vector2D(x_n, y_n))))
+                otherTargets.append(("Middle", Vector2D(GAME_WIDTH/2, GAME_HEIGHT/2).distance(Vector2D(x_n, y_n))))
+                if(self.selectedPlayer[0][0] == 1):
+                    otherTargets.append(("SaCage", Vector2D(0, GAME_HEIGHT/2).distance(Vector2D(x_n, y_n))))
+                    otherTargets.append(("CageAdverse", Vector2D(GAME_WIDTH, GAME_HEIGHT/2).distance(Vector2D(x_n, y_n))))
+                else:
+                    otherTargets.append(("SaCage", Vector2D(GAME_WIDTH, GAME_HEIGHT/2).distance(Vector2D(x_n, y_n))))
+                    otherTargets.append(("CageAdverse", Vector2D(0, GAME_HEIGHT/2).distance(Vector2D(x_n, y_n))))
+
+                for target in otherTargets:
+                    if (target[1] <= DISTANCEMAXALASOURIS):  # Si la cible dépasse la distance maximale fixée, on ne la considère pas
+                        if (not nearestTargets):  # Si la liste est vide, la premiere cible est la plus proche
+                            nearestTargets.append([target[0], target[1]])
+                        else:  # La liste sera ordonnée et completée incrémentalement (indice 0 = le plus proche)
+                            index = 0
+                            isNearest = False
+                            while (index < len(nearestTargets) and not isNearest):
+                                if (target[1] < nearestTargets[index][1]):
+                                    isNearest = True
+                                    nearestTargets.insert(index, [target[0], target[1]])
+                                else:
+                                    index += 1
+                            if (not isNearest):
+                                nearestTargets.append([target[0], target[1]])
+
+                if (nearestTargets):  # Si au moins une cible est suffisament proche
+                    if (len(nearestTargets) == 1):  # S'il n'y a qu'un joueur proche
+                        self.lastTargetsSelectedRecently = []  # Plus besoin de garder en mémoire les joueurs
+                        selectedTarget = nearestTargets[0][0]
+                    else:
+                        alreadySelected = True
+                        index = 0
+                        while alreadySelected and index < len(nearestTargets):  # Sinon on parcours tous les joueurs, on choisit le premier qu'on a jamais vu
+                            joueur = nearestTargets[index][0]
+                            if (joueur in self.lastTargetsSelectedRecently):
+                                index += 1
+                            else:
+                                self.lastTargetsSelectedRecently.append(joueur)  # On sélectionne ce joueur et on considère qu'il a déjà été vu
+                                selectedTarget = joueur
+                                alreadySelected = False
+                        if (alreadySelected):  # Tous les joueurs proches ont déjà été sélectionnés ! On recommence le parcours des joueurs !
+                            self.lastTargetsSelectedRecently = [nearestTargets[0][0]]
+                            selectedTarget = nearestTargets[0][0]
+                    if(button == 4):
+                        self.selectedTarget = selectedTarget
+                    elif(button == 2):
+                        self.selectedTarget2 = selectedTarget
 
 
     def _switch_hud_names(self):
@@ -197,23 +284,32 @@ class SimuGUI(pyglet.window.Window):
         ongoing = "Round : %d/%d" % (self.state.step, self.get_max_steps())
         self.hud.set_val(team1=team1, team2=team2, ongoing=ongoing)
         ######################
-        targets = ["Balle","CageAdverse","SaCage"]
-        for k, v in self.state.players:
-            name_p = self.get_team(k).player_name(v)
-            targets.append(name_p)
+        #targets = ["Balle","CageAdverse","SaCage","CornerTopLeft","CornerTopRight","CornerBottomLeft","CornerBottomRight","MiddleTop","MiddleBottom","Middle"]
+        #for k, v in self.state.players:
+        #    name_p = self.get_team(k).player_name(v)
+        #    targets.append(name_p)
         currentAction = "Fonceur"
         if(self.selectedPlayer[1] != None):
             if (type(self.selectedPlayer[1][1]) == tuple):
                 currentAction = self.selectedPlayer[1][0] + " " + self.get_team(self.selectedPlayer[1][1][0]).player_name(self.selectedPlayer[1][1][1])
             else:
                 currentAction = self.selectedPlayer[1][0] + " " +self.selectedPlayer[1][1]
-        self.orders_hud.set_val(player=str(self.get_team(self.selectedPlayer[0][0]).player_name(self.selectedPlayer[0][1])), ongoing_order=currentAction, target=targets)
+        if(type(self.selectedTarget) == tuple):
+            target = str(self.get_team(self.selectedTarget[0]).player_name(self.selectedTarget[1]))
+        else:
+            target = self.selectedTarget
+        if (type(self.selectedTarget2) == tuple):
+            target2 = str(self.get_team(self.selectedTarget2[0]).player_name(self.selectedTarget2[1]))
+        else:
+            target2 = self.selectedTarget2
+        self.orders_hud.set_val(player=str(self.get_team(self.selectedPlayer[0][0]).player_name(self.selectedPlayer[0][1])), ongoing_order=currentAction, target=target, target2 = target2)
         ######################
         for k in self.state.players:
             self._sprites[k].position = self.state.player_state(k[0], k[1]).position
             self._sprites[k].vitesse= self.state.player_state(k[0], k[1]).vitesse
         if hasattr(self.state,"zones_1"):
             for i,z in enumerate(self.state.zones_1):
+                print(i,z)
                 self._sprites[(i,"z1")].position=z.position
                 self._sprites[(i,"z1")].set_color( GREEN_COLOR if self.state.zones_1_bool[i] else RED_COLOR)
         if hasattr(self.state,"zones_2"):

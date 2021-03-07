@@ -70,9 +70,10 @@ class FonceurStrategyWithOrder(Strategy):
 
     def addOrder(self,order):
         self.resetOrders()
+        if (order[0] == "tire vers"):
+            self.orderList.append(["se déplace vers", "Balle"])
         self.orderList.append(order)
-        if(order[0] == "tire vers"):
-            self.orderList.insert(0,["se déplace vers", "Balle"])
+
     def resetOrders(self):
         self.orderList = []
 

@@ -59,19 +59,19 @@ class SoccerAction(object):
 class Ball(MobileMixin):
     def __init__(self,position=None,vitesse=None,**kwargs):
         super(Ball,self).__init__(position,vitesse,**kwargs)
-    def next(self,sum_of_shoots):
+    def next(self,shoot):
         vitesse = self.vitesse.copy()
         vitesse.norm = self.vitesse.norm - settings.ballBrakeSquare * self.vitesse.norm ** 2 - settings.ballBrakeConstant * self.vitesse.norm
         ## decomposition selon le vecteur unitaire de ball.speed
-        snorm = sum_of_shoots.norm
+        snorm = shoot.norm
         if snorm > 0:
-            u_s = sum_of_shoots.copy()
+            u_s = shoot.copy()
             u_s.normalize()
             u_t = Vector2D(-u_s.y, u_s.x)
             speed_abs = abs(vitesse.dot(u_s))
             speed_ortho = vitesse.dot(u_t)
             speed_tmp = Vector2D(speed_abs * u_s.x - speed_ortho * u_s.y, speed_abs * u_s.y + speed_ortho * u_s.x)
-            speed_tmp += sum_of_shoots
+            speed_tmp += shoot
             vitesse = speed_tmp
         self.vitesse = vitesse.norm_max(settings.maxBallAcceleration).copy()
         self.position += self.vitesse
@@ -258,6 +258,7 @@ class SoccerState(object):
         playersAgility = 0
         playersStrength = 0
         playersAgilityIndex = -1
+        playerTeam = None
         self.goal = 0
         if actions:
             #print("########################################################")
@@ -267,17 +268,18 @@ class SoccerState(object):
                     #print(k, actions[k][1]["agility"])
                     #print(c)
                     shoots.append(c.next(self.ball, actions[k][0], actions[k][1]["speed"]))
-                    #print("Shoot value : ", shoots[-1].x, shoots[-1].y)
                     if((playersAgility < actions[k][1]["agility"] or (playersAgility == actions[k][1]["agility"] and self.ballControl != k[0])) and (shoots[-1].x != 0.0 or shoots[-1].y != 0.0)):
                     #    print("CHANGEMENT", actions[k][1]["agility"])
                         playersAgility = actions[k][1]["agility"]
                         playersStrength = actions[k][1]["strength"]
                         playersAgilityIndex = len(shoots)-1
+                        playerTeam = k[0]
                     #    print(k)
                     #print(shoots)
                     #print(actions[k])
                     #print(self.player_state(k[0],k[1]))
         #print("########################################################")
+        self.ballControl = playerTeam
         self.ball.next(shoots[playersAgilityIndex].scale(playersStrength))
         self.step += 1
         if self.ball.inside_goal():
