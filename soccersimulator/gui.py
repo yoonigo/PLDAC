@@ -37,7 +37,8 @@ class SimuGUI(pyglet.window.Window):
         pyglet.window.key.SPACE: lambda w: w._switch_manual_step(),
         ####
         pyglet.window.key.A: lambda w: w.selectAction(),
-        pyglet.window.key.R: lambda w: w.selectTargeting(),
+        pyglet.window.key.T: lambda w: w.selectTargeting(),
+        pyglet.window.key.R: lambda w: w.changeTarget(),
         pyglet.window.key.Z: lambda w: w.lowerTargetingMixage(),
         pyglet.window.key.E: lambda w: w.upperTargetingMixage()
         ####
@@ -103,6 +104,9 @@ class SimuGUI(pyglet.window.Window):
     def selectTargeting(self):
         self.orders_hud.targetingType = 1 - self.orders_hud.targetingType
         self.orders_hud.change_targeting()
+
+    def changeTarget(self):
+        self.orders_hud.change_target()
 
     def lowerTargetingMixage(self):
         self.orders_hud.change_mixage_target_value(-1)
@@ -238,9 +242,10 @@ class SimuGUI(pyglet.window.Window):
                         if (alreadySelected):  # Tous les joueurs proches ont déjà été sélectionnés ! On recommence le parcours des joueurs !
                             self.lastTargetsSelectedRecently = [nearestTargets[0][0]]
                             selectedTarget = nearestTargets[0][0]
-                    if(button == 4):
+                    print(self.orders_hud.currentTarget=="B")
+                    if(button == 4 and not self.orders_hud.currentTarget=="B"):
                         self.selectedTarget = selectedTarget
-                    elif(button == 2):
+                    elif(button == 2 or (button == 4 and self.orders_hud.currentTarget=="B")):
                         self.selectedTarget2 = selectedTarget
 
 

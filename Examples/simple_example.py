@@ -10,15 +10,17 @@ pyteam.add("Mouna",FonceurStrategyWithOrder(), "speed")
 pyteam.add("Neila",FonceurStrategyWithOrder(), "strength")
 pyteam.add("Felix",FonceurStrategyWithOrder(), "strength")
 pyteam.add("Emmanuelle",FonceurStrategyWithOrder(),"agility")
-#pyteam.add("Emmanuelle",FonceurStrategy(),"strength")
+
 
 team2 = SoccerTeam(name="SubstantialTeam")
 #team2.add("Guillaume",DefenseurStrategy(),"strength")
 #team2.add("Guillaume2",DefenseurStrategy(),"speed")
+
+team2.add("Hannah",FonceurStrategyWithOrder(),"speed")
 team2.add("Vincent",FonceurStrategyWithOrder(), "strength")
 team2.add("Nicolas",FonceurStrategyWithOrder(), "strength")
 team2.add("Guillaume",FonceurStrategyWithOrder(),"agility")
-team2.add("Hannah",FonceurStrategyWithOrder(),"speed")
+
 
 
 

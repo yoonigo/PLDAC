@@ -91,43 +91,7 @@ def fonceurNew(I):
     else:
         return I.tirerVers(I.his_goal)
 
-def executeOrder(I,order, state):
-    def getCible(cible):
-        if (cible == "CageAdverse"):
-            return I.his_goal
-        if (cible == "SaCage"):
-            return I.my_goal
-        if (cible == "Balle"):
-            return I.ball_p
-        if (cible == "CornerTopLeft"):
-            return I.cornerTopLeft
-        if (cible == "CornerTopRight"):
-            return I.cornerTopRight
-        if (cible == "CornerBottomLeft"):
-            return I.cornerBottomLeft
-        if (cible == "CornerBottomRight"):
-            return I.cornerBottomRight
-        if (cible == "MiddleTop"):
-            return I.middleTop
-        if (cible == "MiddleBottom"):
-            return I.middleBottom
-        if (cible == "Middle"):
-            return I.middle
-        else:
-            return state[cible].position
 
-    if(len(order) == 2): #TargetingType = 0
-        cible = getCible(order[1])
-    else: #TargetingType = 1
-        print(order)
-        cibleA = getCible(order[1])
-        cibleB = getCible(order[2])
-        cible = cibleA.mixage(cibleB,order[3])
-    if(order[0] == "se déplace vers"):
-        actionMustStop = I.proximiteAtteinte(cible)
-        return (I.allerVers(cible),actionMustStop)
-    elif(order[0] == "tire vers"):
-        return (I.tirerVers(cible),True)
 
 
 

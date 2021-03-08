@@ -1,6 +1,6 @@
 from soccersimulator  import Strategy, SoccerAction, Vector2D, Simulation
 from .tools import SuperState, Comportement, get_random_SoccerAction
-from .briques import ComportementNaif, ComportementNew, ConditionAttaque,ConditionDefenseur,fonceur, fonceurNew,defenseur,executeOrder
+from .briques import ComportementNaif, ComportementNew, ConditionAttaque,ConditionDefenseur,fonceur, fonceurNew,defenseur
 import pickle
 
 class RandomStrategy(Strategy):
@@ -59,19 +59,68 @@ class FonceurStrategyWithOrder(Strategy):
     def compute_strategy(self,state,id_team,id_player):
         I = ComportementNew(SuperState(state, id_team, id_player))
         if(self.orderList):
-            action = executeOrder(I,self.orderList[0],Simulation.ETAT.states)
+            action = self.executeOrder(I,self.orderList[0],Simulation.ETAT.states)
             if(action[1] == True):
                 self.orderList.pop(0)
                 if(self.orderList):
-                    action = executeOrder(I, self.orderList[0], Simulation.ETAT.states)
+                    action = self.executeOrder(I, self.orderList[0], Simulation.ETAT.states)
             return action[0]
 
         return fonceurNew(I)
+
+    def executeOrder(self, I, order, state):
+        def getCible(cible):
+            if (cible == "CageAdverse"):
+                return I.his_goal
+            if (cible == "SaCage"):
+                return I.my_goal
+            if (cible == "Balle"):
+                return I.ball_p
+            if (cible == "CornerTopLeft"):
+                return I.cornerTopLeft
+            if (cible == "CornerTopRight"):
+                return I.cornerTopRight
+            if (cible == "CornerBottomLeft"):
+                return I.cornerBottomLeft
+            if (cible == "CornerBottomRight"):
+                return I.cornerBottomRight
+            if (cible == "MiddleTop"):
+                return I.middleTop
+            if (cible == "MiddleBottom"):
+                return I.middleBottom
+            if (cible == "Middle"):
+                return I.middle
+            else:
+                return state[cible].position
+
+        if (len(order) == 2):  # TargetingType = 0
+            cible = getCible(order[1])
+        else:  # TargetingType = 1
+            cibleA = getCible(order[1])
+            cibleB = getCible(order[2])
+            cible = cibleA.mixage(cibleB, order[3])
+        if (order[0] == "se déplace vers"):
+            actionMustStop = I.proximiteAtteinte(cible)
+            return (I.allerVers(cible), actionMustStop)
+        elif (order[0] == "tire vers"):
+            return (I.tirerVers(cible), True)
+        elif (order[0] == "tire versL"):
+            return (I.tirerVers(cible, low=True), True)
+        elif (order[0] == "dribble vers"):
+            actionMustStop = I.proximiteAtteinte(cible)
+            if (not actionMustStop):
+                self.addOrder(order)
+            return (I.allerVers(cible), actionMustStop)
 
     def addOrder(self,order):
         self.resetOrders()
         if (order[0] == "tire vers"):
             self.orderList.append(["se déplace vers", "Balle"])
+        if (order[0] == "dribble vers"):
+            self.orderList.append(["se déplace vers","Balle"])
+            orderTmp = order.copy()
+            orderTmp[0] = "tire versL"
+            self.orderList.append(orderTmp)
         self.orderList.append(order)
 
     def resetOrders(self):
