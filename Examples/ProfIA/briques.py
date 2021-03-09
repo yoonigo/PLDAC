@@ -63,7 +63,7 @@ class ComportementNew(Comportement):
     RUN_COEF = maxPlayerAcceleration
     SHOOT_COEF = maxPlayerShoot
     LOW_SHOOT_COEF = maxPlayerShoot / 3.
-    COEF_BALL = 1
+    COEF_BALL = 1.5
 
     def __init__(self,state):
         super(ComportementNew,self).__init__(state)
@@ -91,24 +91,7 @@ def fonceurNew(I):
     else:
         return I.tirerVers(I.his_goal)
 
-def executeOrder(I,order, state):
-    def getCible(cible):
-        if (cible == "CageAdverse"):
-            return I.his_goal
-        if (cible == "SaCage"):
-            return I.my_goal
-        if (cible == "Balle"):
-            return I.ball_p
-        else:
-            return state[cible].position
 
-
-    cible = getCible(order[1])
-    if(order[0] == "se déplace vers"):
-        actionMustStop = I.proximiteAtteinte(cible)
-        return (I.allerVers(cible),actionMustStop)
-    elif(order[0] == "tire vers"):
-        return (I.tirerVers(cible),True)
 
 
 

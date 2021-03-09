@@ -59,19 +59,22 @@ class SoccerAction(object):
 class Ball(MobileMixin):
     def __init__(self,position=None,vitesse=None,**kwargs):
         super(Ball,self).__init__(position,vitesse,**kwargs)
-    def next(self,sum_of_shoots):
+    def next(self,shoot):
         vitesse = self.vitesse.copy()
         vitesse.norm = self.vitesse.norm - settings.ballBrakeSquare * self.vitesse.norm ** 2 - settings.ballBrakeConstant * self.vitesse.norm
         ## decomposition selon le vecteur unitaire de ball.speed
-        snorm = sum_of_shoots.norm
+        snorm = shoot.norm
         if snorm > 0:
-            u_s = sum_of_shoots.copy()
+
+            u_s = shoot.copy()
             u_s.normalize()
-            u_t = Vector2D(-u_s.y, u_s.x)
+            #u_t = Vector2D(-u_s.y, u_s.x)
             speed_abs = abs(vitesse.dot(u_s))
-            speed_ortho = vitesse.dot(u_t)
-            speed_tmp = Vector2D(speed_abs * u_s.x - speed_ortho * u_s.y, speed_abs * u_s.y + speed_ortho * u_s.x)
-            speed_tmp += sum_of_shoots
+            #speed_ortho = vitesse.dot(u_t)
+            #speed_tmp = Vector2D(speed_abs * u_s.x - speed_ortho * u_s.y, speed_abs * u_s.y + speed_ortho * u_s.x)
+            speed_tmp = Vector2D(speed_abs * u_s.x, speed_abs * u_s.y)
+            speed_tmp += shoot
+
             vitesse = speed_tmp
         self.vitesse = vitesse.norm_max(settings.maxBallAcceleration).copy()
         self.position += self.vitesse
@@ -258,6 +261,7 @@ class SoccerState(object):
         playersAgility = 0
         playersStrength = 0
         playersAgilityIndex = -1
+        playerTeam = None
         self.goal = 0
         if actions:
             #print("########################################################")
@@ -267,17 +271,18 @@ class SoccerState(object):
                     #print(k, actions[k][1]["agility"])
                     #print(c)
                     shoots.append(c.next(self.ball, actions[k][0], actions[k][1]["speed"]))
-                    #print("Shoot value : ", shoots[-1].x, shoots[-1].y)
                     if((playersAgility < actions[k][1]["agility"] or (playersAgility == actions[k][1]["agility"] and self.ballControl != k[0])) and (shoots[-1].x != 0.0 or shoots[-1].y != 0.0)):
                     #    print("CHANGEMENT", actions[k][1]["agility"])
                         playersAgility = actions[k][1]["agility"]
                         playersStrength = actions[k][1]["strength"]
                         playersAgilityIndex = len(shoots)-1
+                        playerTeam = k[0]
                     #    print(k)
                     #print(shoots)
                     #print(actions[k])
                     #print(self.player_state(k[0],k[1]))
         #print("########################################################")
+        self.ballControl = playerTeam
         self.ball.next(shoots[playersAgilityIndex].scale(playersStrength))
         self.step += 1
         if self.ball.inside_goal():
@@ -301,17 +306,31 @@ class SoccerState(object):
         self.goal = idx
 
     @classmethod
-    def create_initial_state(cls, nb_players_1=0, nb_players_2=0,max_steps=settings.MAX_GAME_STEPS):
+    def create_initial_state(cls, nb_players_1=0, nb_players_2=0, team = 1, max_steps=settings.MAX_GAME_STEPS):
         """ Creer un etat initial avec le nombre de joueurs indique
         :param nb_players_1: nombre de joueur de la team 1
         :param nb_players_2: nombre de joueur de la teamp 2
         :return:
         """
         state = cls()
-        state.reset_state(nb_players_1=nb_players_1,nb_players_2= nb_players_2)
+        state.reset_state(nb_players_1=nb_players_1,nb_players_2= nb_players_2, team = team)
         return state
 
-    def reset_state(self, nb_players_1=0, nb_players_2=0):
+    def reset_state(self, nb_players_1=0, nb_players_2=0, team = 1):
+        def InversePosition(vector, team = team):
+            if(team == 2):
+                return Vector2D(settings.GAME_WIDTH - vector.x,vector.y)
+            return vector
+        def InverseTeam(teamJoueur, team = team):
+            if(team == 2):
+                return int(-teamJoueur+3)
+            return teamJoueur
+        def getNbPlayers(team):
+            if(team == 1):
+                return nb_players_1
+            else:
+                return  nb_players_2
+
         if nb_players_1 == 0 and self.nb_players(1) > 0:
             nb_players_1 = self.nb_players(1)
         if nb_players_2 == 0 and self.nb_players(2) > 0:
@@ -319,36 +338,37 @@ class SoccerState(object):
         quarters = [i * settings.GAME_HEIGHT / 4. for i in range(1, 4)]
         rows = [settings.GAME_WIDTH * 0.1, settings.GAME_WIDTH * 0.35, settings.GAME_WIDTH * (1 - 0.35),
                 settings.GAME_WIDTH * (1 - 0.1)]
-        if nb_players_1 == 1:
-            self.states[(1, 0)] = PlayerState(position=Vector2D(rows[0], quarters[1]))
-        if nb_players_2 == 1:
-            self.states[(2, 0)] = PlayerState(position=Vector2D(rows[3], quarters[1]))
-        if nb_players_1 == 2:
-            self.states[(1, 0)] = PlayerState(position=Vector2D(rows[0], quarters[0]))
-            self.states[(1, 1)] = PlayerState(position=Vector2D(rows[0], quarters[2]))
-        if nb_players_2 == 2:
-            self.states[(2, 0)] = PlayerState(position=Vector2D(rows[3], quarters[0]))
-            self.states[(2, 1)] = PlayerState(position=Vector2D(rows[3], quarters[2]))
-        if nb_players_1 == 3:
-            self.states[(1, 0)] = PlayerState(position=Vector2D(rows[0], quarters[1]))
-            self.states[(1, 1)] = PlayerState(position=Vector2D(rows[0], quarters[0]))
-            self.states[(1, 2)] = PlayerState(position=Vector2D(rows[0], quarters[2]))
-        if nb_players_2 == 3:
-            self.states[(2, 0)] = PlayerState(position=Vector2D(rows[3], quarters[1]))
-            self.states[(2, 1)] = PlayerState(position=Vector2D(rows[3], quarters[0]))
-            self.states[(2, 2)] = PlayerState(position=Vector2D(rows[3], quarters[2]))
-        if nb_players_1 == 4:
-            self.states[(1, 0)] = PlayerState(position=Vector2D(rows[0], quarters[0]))
-            self.states[(1, 1)] = PlayerState(position=Vector2D(rows[0], quarters[2]))
-            self.states[(1, 2)] = PlayerState(position=Vector2D(rows[1], quarters[0]))
-            self.states[(1, 3)] = PlayerState(position=Vector2D(rows[1], quarters[2]))
-        if nb_players_2 == 4:
-            self.states[(2, 0)] = PlayerState(position=Vector2D(rows[3], quarters[0]))
-            self.states[(2, 1)] = PlayerState(position=Vector2D(rows[3], quarters[2]))
-            self.states[(2, 2)] = PlayerState(position=Vector2D(rows[2], quarters[0]))
-            self.states[(2, 3)] = PlayerState(position=Vector2D(rows[2], quarters[2]))
+        if getNbPlayers(InverseTeam(1)) == 1:
+            self.states[(InverseTeam(1), 0)] = PlayerState(position=InversePosition(Vector2D((settings.GAME_WIDTH/2)*0.9, quarters[1])))
+        if getNbPlayers(InverseTeam(2)) == 1:
+            self.states[(InverseTeam(2), 0)] = PlayerState(position=InversePosition(Vector2D((settings.GAME_WIDTH/2)*1.5, quarters[1])))
+        if getNbPlayers(InverseTeam(1)) == 2:
+            self.states[(InverseTeam(1), 0)] = PlayerState(position=InversePosition(Vector2D((settings.GAME_WIDTH/2)*0.9, quarters[1])))
+            self.states[(InverseTeam(1), 1)] = PlayerState(position=InversePosition(Vector2D(settings.GAME_WIDTH*0.2, quarters[1])))
+        if getNbPlayers(InverseTeam(2)) == 2:
+            self.states[(InverseTeam(2), 0)] = PlayerState(position=InversePosition(Vector2D((settings.GAME_WIDTH/2)*1.3, quarters[1])))
+            self.states[(InverseTeam(2), 1)] = PlayerState(position=InversePosition(Vector2D(settings.GAME_WIDTH*0.9, quarters[1])))
+        if getNbPlayers(InverseTeam(1)) == 3:
+            self.states[(InverseTeam(1), 0)] = PlayerState(position=InversePosition(Vector2D((settings.GAME_WIDTH/2)*0.9, quarters[1])))
+            self.states[(InverseTeam(1), 1)] = PlayerState(position=InversePosition(Vector2D(settings.GAME_WIDTH*0.30, quarters[0])))
+            self.states[(InverseTeam(1), 2)] = PlayerState(position=InversePosition(Vector2D(settings.GAME_WIDTH*0.30, quarters[2])))
+        if getNbPlayers(InverseTeam(2)) == 3:
+            self.states[(InverseTeam(2), 0)] = PlayerState(position=InversePosition(Vector2D((settings.GAME_WIDTH/2)*1.3, quarters[1])))
+            self.states[(InverseTeam(2), 1)] = PlayerState(position=InversePosition(Vector2D(settings.GAME_WIDTH*0.85, quarters[0])))
+            self.states[(InverseTeam(2), 2)] = PlayerState(position=InversePosition(Vector2D(settings.GAME_WIDTH*0.85, quarters[2])))
+        if getNbPlayers(InverseTeam(1)) == 4:
+            self.states[(InverseTeam(1), 0)] = PlayerState(position=InversePosition(Vector2D((settings.GAME_WIDTH/2)*0.9, quarters[1])))
+            self.states[(InverseTeam(1), 1)] = PlayerState(position=InversePosition(Vector2D(settings.GAME_WIDTH*0.30, quarters[0])))
+            self.states[(InverseTeam(1), 2)] = PlayerState(position=InversePosition(Vector2D(settings.GAME_WIDTH*0.30, quarters[2])))
+            self.states[(InverseTeam(1), 3)] = PlayerState(position=InversePosition(Vector2D(settings.GAME_WIDTH*0.15, quarters[1])))
+        if getNbPlayers(InverseTeam(2)) == 4:
+            self.states[(InverseTeam(2), 0)] = PlayerState(position=InversePosition(Vector2D((settings.GAME_WIDTH/2)*1.3, quarters[1])))
+            self.states[(InverseTeam(2), 1)] = PlayerState(position=InversePosition(Vector2D(settings.GAME_WIDTH*0.8, quarters[0])))
+            self.states[(InverseTeam(2), 2)] = PlayerState(position=InversePosition(Vector2D(settings.GAME_WIDTH*0.8, quarters[2])))
+            self.states[(InverseTeam(2), 3)] = PlayerState(position=InversePosition(Vector2D(settings.GAME_WIDTH*0.9, quarters[1])))
         self.ball = Ball(Vector2D(settings.GAME_WIDTH / 2, settings.GAME_HEIGHT / 2),Vector2D())
         self.goal = 0
+        return self
 
 
 
@@ -490,6 +510,7 @@ class Simulation(object):
     def __init__(self,team1=None,team2=None, max_steps = settings.MAX_GAME_STEPS,initial_state=None,**kwargs):
         self.team1, self.team2 = team1 or SoccerTeam(),team2 or SoccerTeam()
         self.initial_state = initial_state or  SoccerState.create_initial_state(self.team1.nb_players,self.team2.nb_players,max_steps)
+        self.initial_state2 = SoccerState.create_initial_state(self.team1.nb_players,self.team2.nb_players,2,max_steps)
         self.state = self.initial_state.copy()
         Simulation.ETAT = self.state.copy()
         self.max_steps = max_steps
@@ -524,7 +545,9 @@ class Simulation(object):
         self.error = False
     def to_dict(self):
         return dict(team1=self.team1,team2=self.team2,state=self.state,max_steps=self.max_steps,states=self.states,initial_state=self.initial_state)
-    def get_initial_state(self):
+    def get_initial_state(self, team = 1):
+        if(team == 2):
+            return self.initial_state2.copy()
         return self.initial_state.copy()
     def start_thread(self):
         if not self._thread or not self._thread.isAlive():
@@ -596,7 +619,7 @@ class Simulation(object):
     def begin_round(self):
         if not self.replay:
             self.score=dict(self.state.score)
-            self.set_state(self.get_initial_state())
+            self.set_state(self.get_initial_state(int(-self.state.goal+3)))
             self.team1.resetOrders()
             self.team2.resetOrders()
             self.listeners.begin_round(self.team1,self.team2,self.state.copy())

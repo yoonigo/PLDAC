@@ -26,3 +26,5 @@ PANEL_BKG_COLOR = [1, 1, 1]
 PANEL_TXT_COLOR = [10, 10, 10, 200]
 PANEL_SCORE_COLOR = [200, 10, 10, 100]
 PANEL_DELTA = 6
+###################################################
+DISTANCEMAXALASOURIS = 5

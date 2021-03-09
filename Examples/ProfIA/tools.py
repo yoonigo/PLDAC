@@ -44,6 +44,29 @@ class SuperState(ProxyObj):
     @property
     def height(self):
         return GAME_HEIGHT
+    #######################################################################
+    @property
+    def cornerTopLeft(self):
+        return Vector2D(0,self.height)
+    @property
+    def cornerTopRight(self):
+        return Vector2D(self.width,self.height)
+    @property
+    def cornerBottomLeft(self):
+        return Vector2D(0, 0)
+    @property
+    def cornerBottomRight(self):
+        return Vector2D(self.width, 0)
+    @property
+    def middleTop(self):
+        return Vector2D(self.width/2, self.height)
+    @property
+    def middle(self):
+        return Vector2D(self.width/2, self.height/2)
+    @property
+    def middleBottom(self):
+        return Vector2D(self.width/2, 0)
+    #######################################################################
     @property
     def goal_center(self):
         return self.height/2. #+ self.goal_radius

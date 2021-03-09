@@ -219,6 +219,9 @@ class Vector2D(object):
         res.random(low, high)
         return res
 
+    def mixage(self, cible2, valeurMixage):
+        return self.__mul__(valeurMixage).__add__(cible2.__mul__(1-valeurMixage))
+
     def __repr__(self):
         return "Vector2D(%f,%f)" % (self.x,self.y)
     def __str__(self):
