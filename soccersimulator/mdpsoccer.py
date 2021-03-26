@@ -65,7 +65,6 @@ class Ball(MobileMixin):
         ## decomposition selon le vecteur unitaire de ball.speed
         snorm = shoot.norm
         if snorm > 0:
-
             u_s = shoot.copy()
             u_s.normalize()
             #u_t = Vector2D(-u_s.y, u_s.x)
@@ -74,21 +73,28 @@ class Ball(MobileMixin):
             #speed_tmp = Vector2D(speed_abs * u_s.x - speed_ortho * u_s.y, speed_abs * u_s.y + speed_ortho * u_s.x)
             speed_tmp = Vector2D(speed_abs * u_s.x, speed_abs * u_s.y)
             speed_tmp += shoot
-
             vitesse = speed_tmp
         self.vitesse = vitesse.norm_max(settings.maxBallAcceleration).copy()
         self.position += self.vitesse
+
     def inside_goal(self):
         return (self.position.x < 0 or self.position.x > settings.GAME_WIDTH)\
                 and abs(self.position.y - (settings.GAME_HEIGHT / 2.)) < settings.GAME_GOAL_HEIGHT / 2.
+
+    @property
     def nextLikelyPosition(self):
         ## prédit la position du ballon apres une passe ou un tir vers le goal pour permettre une interception
-        return self.position + 50*self.vitesse.normalize()
+        currentVitesse = self.vitesse.copy()
+        currentPos = self.position.copy() + currentVitesse
+        while currentVitesse.norm > 0.1:
+            currentVitesse.norm = currentVitesse.norm - settings.ballBrakeSquare * currentVitesse.norm ** 2 - settings.ballBrakeConstant * currentVitesse.norm
+            currentPos += currentVitesse
+        return currentPos
 
     def __repr__(self):
         return "Ball(%s,%s)" % (self.position.__repr__(),self.vitesse.__repr__())
     def __str__(self):
-        return "Ball: pos: %s, vit: %s" %(str(self.position),str(self.vitesse))
+        return "Ball: pos: %s, vit: %s, nextPos: %s" %(str(self.position),str(self.vitesse), str(self.nextLikelyPosition))
 
 ###############################################################################
 # PlayerState
@@ -201,12 +207,14 @@ class SoccerState(object):
         self.goal = kwargs.pop('goal', 0)
         self.__dict__.update(kwargs)
         ###############################################
-        self.ballControl = 1
+        self.ballControl = 1 #l'équipe qui shoot le ballon à l'instant même
+
 
     def __str__(self):
         return ("Step: %d, %s " %(self.step,str(self.ball)))+\
                " ".join("(%d,%d):%s" %(k[0],k[1],str(p)) for k,p in sorted(self.states.items()))+\
-               (" score : %d-%d" %(self.score_team1,self.score_team2))
+               (" score : %d-%d" %(self.score_team1,self.score_team2))+\
+               (", ballControl : %s" %(self.ballControl))
     def __repr__(self):
         return self.__str__()
 
@@ -214,7 +222,7 @@ class SoccerState(object):
         return dict(states=dict_to_json(self.states),
                 strategies=dict_to_json( self.strategies),
                 ball=self.ball,score=dict_to_json(self.score),step=self.step,
-                max_steps=self.max_steps,goal=self.goal)
+                max_steps=self.max_steps,goal=self.goal,ballControl = self.ballControl)
     def player_state(self, id_team, id_player):
         """ renvoie la configuration du joueur
         :param id_team: numero de la team du joueur
@@ -282,7 +290,8 @@ class SoccerState(object):
                     #print(actions[k])
                     #print(self.player_state(k[0],k[1]))
         #print("########################################################")
-        self.ballControl = playerTeam
+        if(playerTeam):
+            self.ballControl = playerTeam
         self.ball.next(shoots[playersAgilityIndex].scale(playersStrength))
         self.step += 1
         if self.ball.inside_goal():
@@ -406,13 +415,14 @@ class SoccerTeam(object):
     """ Equipe de foot. Comporte une  liste ordonnee de  Player.
     """
 
-    def __init__(self, name=None, players=None, login=None, simu = None):
+    def __init__(self, name=None, players=None, login=None, simu = None, entraineur = None):
         """
         :param name: nom de l'equipe
         :param players: liste de joueur Player(name,strategy)
         :return:
         """
         self.name, self.players, self.login = name or "", players or [], login or ""
+        self.entraineur = entraineur
     def to_dict(self):
         return {"name":self.name,"players":self.players,"login":self.login}
     def __iter__(self):
@@ -426,6 +436,10 @@ class SoccerTeam(object):
 
     def add(self,name,strategy,type = "agility"):
         self.players.append(Player(name,strategy,type))
+        if(self.entraineur != None):
+            strats = self.entraineur.getOrderStrategies()
+            strats[len(self.players)-1]=strategy
+            self.entraineur.setOrderStrategies(strats)
         return self
     @property
     def players_name(self):
@@ -468,6 +482,10 @@ class SoccerTeam(object):
         :param id_team: numero de l'equipe
         :return: dictionnaire action et caracteristique des joueurs
         """
+        if(self.entraineur != None):
+            if(hasattr(self.entraineur, 'setCurrentState')):
+                self.entraineur.setCurrentState(state)
+            self.entraineur.giveOrders()
         return dict([((id_team, i), (x.strategy.compute_strategy(state.copy(), id_team, i),x.characs)) for i, x in
                      enumerate(self.players) if  hasattr( x.strategy,"compute_strategy")])
 
@@ -507,8 +525,15 @@ class SoccerTeam(object):
 class Simulation(object):
     ETAT = None
 
-    def __init__(self,team1=None,team2=None, max_steps = settings.MAX_GAME_STEPS,initial_state=None,**kwargs):
+    def __init__(self,team1=None,team2=None, shouldSaveData = False, max_steps = settings.MAX_GAME_STEPS,initial_state=None,**kwargs):
         self.team1, self.team2 = team1 or SoccerTeam(),team2 or SoccerTeam()
+        #######################################################
+        if(hasattr(self.team1.entraineur, 'setter')):
+            self.team1.entraineur.setter(1,[len(self.team1.players),len(self.team2.players)])
+        if (hasattr(self.team2.entraineur, 'setter')):
+            self.team2.entraineur.setter(2,[len(self.team1.players),len(self.team2.players)])
+        self.shouldSaveData = shouldSaveData
+        #######################################################
         self.initial_state = initial_state or  SoccerState.create_initial_state(self.team1.nb_players,self.team2.nb_players,max_steps)
         self.initial_state2 = SoccerState.create_initial_state(self.team1.nb_players,self.team2.nb_players,2,max_steps)
         self.state = self.initial_state.copy()

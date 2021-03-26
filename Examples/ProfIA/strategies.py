@@ -65,7 +65,7 @@ class FonceurStrategyWithOrder(Strategy):
                 if(self.orderList):
                     action = self.executeOrder(I, self.orderList[0], Simulation.ETAT.states)
             return action[0]
-
+        return None
         return fonceurNew(I)
 
     def executeOrder(self, I, order, state):
@@ -76,6 +76,8 @@ class FonceurStrategyWithOrder(Strategy):
                 return I.my_goal
             if (cible == "Balle"):
                 return I.ball_p
+            if (cible == "BalleProchaine"):
+                return I.ball_np
             if (cible == "CornerTopLeft"):
                 return I.cornerTopLeft
             if (cible == "CornerTopRight"):
@@ -128,6 +130,7 @@ class FonceurStrategyWithOrder(Strategy):
 
     def getCurrentOrder(self):
         if(self.orderList):
+            return self.orderList[-1]
             return [self.orderList[-1][0],self.orderList[-1][1]]
         else:
             return None

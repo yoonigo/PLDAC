@@ -36,6 +36,9 @@ class SuperState(ProxyObj):
     def ball_p(self):
         return self.ball.position
     @property
+    def ball_np(self):
+        return self.ball.nextLikelyPosition
+    @property
     def can_kick(self):
         return self.distance(self.ball_p)<(PLAYER_RADIUS+BALL_RADIUS)
     @property

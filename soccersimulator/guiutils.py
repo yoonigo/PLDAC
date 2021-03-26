@@ -370,24 +370,30 @@ class Orders_hud(object):
             elif k == "target":
                 #self.targets = v
                 self.target = v
-                ajout = ""
+                ajout = ["",""]
                 if(self.targetingType == 1):
-                    ajout = "A "
-                self.sprites["target"]._label.text = "Choix de la cible "+ ajout + ": " + self.target
+                    ajout[0] = "A "
+                    if(self.currentTarget == "A"):
+                        ajout[1] = " ♦"
+                self.sprites["target"]._label.text = "Choix de la cible "+ ajout[0] + ": " + self.target + ajout[1]
             elif k == "target2":
                 if(self.targetingType == 1):
+                    ajout = ""
+                    if (self.currentTarget == "B"):
+                        ajout = " ♦"
                     self.target2 = v
-                    self.sprites["target2"]._label.text = "Choix de la cible B : " + self.target2
+                    self.sprites["target2"]._label.text = "Choix de la cible B : " + self.target2 + ajout
+                else:
+                    self.sprites["target2"]._label.text = ""
+                    self.sprites["targetMixer"]._label.text = ""
+        self.sprites["action"]._label.text = "Choix de l'action : " + self.action
+        if(self.targetingType == 1):
+            self.sprites["targetMixer"]._label.text = "Valeur du mixage (A: 1-0 :B) : " + str(self.mixageTargetValue)
 
     def change_targeting(self):
-        if(self.targetingType == 0):
-            self.sprites["target"]._label.text = "Choix de la cible : "+self.target
-            self.sprites["target2"]._label.text = ""
-            self.sprites["targetMixer"]._label.text = ""
-        else:
-            self.sprites["target"]._label.text = "Choix de la cible A : " + self.target
-            self.sprites["target2"]._label.text = "Choix de la cible B : " + self.target2
-            self.sprites["targetMixer"]._label.text = "Valeur du mixage (A: 1-0 :B) : " + str(self.mixageTargetValue)
+        self.targetingType = 1 - self.targetingType
+        if(self.targetingType == 0 and self.currentTarget == "B"):
+            self.currentTarget = "A"
 
     def change_target(self):
         if (self.targetingType == 1):
@@ -406,7 +412,6 @@ class Orders_hud(object):
                 self.mixageTargetValue = round(-0.1+self.mixageTargetValue,1)
                 if (self.mixageTargetValue <= 0.05):
                     self.mixageTargetValue = 0.9
-            self.sprites["targetMixer"]._label.text = "Valeur du mixage (A: 1-0 :B) : " + str(self.mixageTargetValue)
 
     def get_target(self):
         return self.target
@@ -418,12 +423,7 @@ class Orders_hud(object):
             self.action = "dribble vers"
         else:
             self.action = "tire vers"
-        self.sprites["action"]._label.text = "Choix de l'action : "+self.action
 
-    def change_currentAction(self,currentAction):
-        print(currentAction)
-        self.currentAction = currentAction
-        self.sprites["ongoing_order"]._label.text = "Action en cours : " + self.currentAction
 
     def get_action(self):
         return self.action
