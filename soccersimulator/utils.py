@@ -293,6 +293,9 @@ class Vector2D(object):
     def __truediv__(self,other):
         return self.__div__(other)
 
+    def toList(self):
+        return [self.x,self.y]
+
 class MobileMixin(object):
     """ Mixin pour représenter un objet mobile. Dispose d'un vecteur position et d'un vecteur vitesse.
     """

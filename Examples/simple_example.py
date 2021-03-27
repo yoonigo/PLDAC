@@ -1,18 +1,21 @@
 from soccersimulator import SoccerTeam, Simulation, show_simu
-from ProfIA import FonceurStrategy,FonceurStrategyWithOrder,FonceurTestStrategy,DefenseurStrategy,get_team, RandomStrategy
+from ProfIA import FonceurStrategy,FonceurStrategyWithOrder,FonceurTestStrategy,DefenseurStrategy,get_team, RandomStrategy, EntraineurRandom, EntraineurKNN
 
 
 ## Creation d'une equipe
-pyteam = SoccerTeam(name="RealTeam")
+#pyteam = SoccerTeam(name="RealTeam")
+pyteam = SoccerTeam(name="RealTeam", entraineur=EntraineurKNN())
 
 #pyteam.add("Mouna",DefenseurStrategy(), "strength")
 pyteam.add("Mouna",FonceurStrategyWithOrder(), "speed")
 pyteam.add("Neila",FonceurStrategyWithOrder(), "strength")
 pyteam.add("Felix",FonceurStrategyWithOrder(), "strength")
-pyteam.add("Emmanuelle",FonceurStrategyWithOrder(),"agility")
+pyteam.add("Manu",FonceurStrategyWithOrder(),"agility")
 
+#team2 = SoccerTeam(name="SubstantialTeam")
+#team2 = SoccerTeam(name="SubstantialTeam", entraineur=EntraineurRandom(["tire vers","se déplace vers","dribble vers"],["Balle","CornerTopLeft","CornerTopRight","CornerBottomLeft","CornerBottomRight","MiddleTop","Middle","MiddleBottom"]))
+team2 = SoccerTeam(name="SubstantialTeam", entraineur=EntraineurKNN())
 
-team2 = SoccerTeam(name="SubstantialTeam")
 #team2.add("Guillaume",DefenseurStrategy(),"strength")
 #team2.add("Guillaume2",DefenseurStrategy(),"speed")
 

@@ -1,7 +1,8 @@
 from .strategies import FonceurStrategyWithOrder,DefenseurStrategy,FonceurStrategy,RandomStrategy, FonceurTestStrategy
 from .optimization import ParamSearch
-from soccersimulator import SoccerTeam
+from soccersimulator import SoccerTeam, csvHandler
 from .tools import SuperState
+from .entraineur import EntraineurRandom, EntraineurKNN
 
 def get_team(nb_players):
 	myteam = SoccerTeam(name="ProfTeam")

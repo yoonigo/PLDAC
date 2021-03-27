@@ -1,5 +1,7 @@
 # -*- coding: utf-8 -*-
 import pyglet
+import csv
+import os
 # pyglet.options["debug_gl"]=True
 # pyglet.options["debug_trace"]=True
 # pyglet.options["debug_gl_trace"]=True
@@ -12,7 +14,10 @@ from .guiutils import *
 import logging
 from .guisettings import *
 from .settings import GAME_HEIGHT, GAME_WIDTH
+from .database import csvHandler
 
+#patate = csvHandler()
+#patate.duplicateData('../soccersimulator/etats.csv','../soccersimulator/ordres.csv','../soccersimulator/etatsSym.csv','../soccersimulator/ordresSym.csv',True)
 
 FPS = 50.
 FPS_MOD = 5.
@@ -59,11 +64,14 @@ class SimuGUI(pyglet.window.Window):
         self.hud = Hud()
         ###################################################################################
         self.orders_hud = Orders_hud()
+        self.csvHandler = csvHandler()
         self.lastPlayersSelectedRecently = []  # TEMPORAIRE IL FAUT DECIDER D'OU LE METTRE
         self.selectedPlayer = [(1, 0), None]
         self.lastTargetsSelectedRecently = []  # TEMPORAIRE IL FAUT DECIDER D'OU LE METTRE
         self.selectedTarget = "SaCage"
         self.selectedTarget2 = "SaCage"
+        self.enregistrer = True
+        self.lastStateSaved = None
         ###################################################################################
         ###
         pyglet.clock.schedule_interval(self.update, 1. / 25)
@@ -98,11 +106,18 @@ class SimuGUI(pyglet.window.Window):
         else:
              self._mode_next = self.MANUAL
 
+
+
+
+
+
+    def playerToName(self,player):
+        return self.get_team(player[0]).player_name(player[1])
+
     def selectAction(self):
         self.orders_hud.change_action()
 
     def selectTargeting(self):
-        self.orders_hud.targetingType = 1 - self.orders_hud.targetingType
         self.orders_hud.change_targeting()
 
     def changeTarget(self):
@@ -114,18 +129,88 @@ class SimuGUI(pyglet.window.Window):
     def upperTargetingMixage(self):
         self.orders_hud.change_mixage_target_value(1)
 
+    def resetOrderGUI(self):
+        self.lastPlayersSelectedRecently = []  # TEMPORAIRE IL FAUT DECIDER D'OU LE METTRE
+        self.selectedPlayer = [(1, 0), None]
+        self.lastTargetsSelectedRecently = []  # TEMPORAIRE IL FAUT DECIDER D'OU LE METTRE
+        self.selectedTarget = "SaCage"
+        self.selectedTarget2 = "SaCage"
+
+    def orderToString(self, order):
+        if(order == None):
+            return "Fonceur"
+        if(len(order)>2):
+            action = ""
+            actionTmp = order[0].split(" ")
+            for word in actionTmp[:-1]:
+                action+=word + " "
+            action += "entre "
+            if (type(order[1]) == tuple):
+                cible1 = self.playerToName(order[1])
+            else:
+                cible1 = order[1]
+            if (type(order[2]) == tuple):
+                cible2 = self.playerToName(order[2])
+            else:
+                cible2 = order[2]
+            return action + cible1 + " et " + cible2
+        else:
+            action = order[0] + " "
+            if (type(order[1]) == tuple):
+                cible = self.playerToName(order[1])
+            else:
+                cible = order[1]
+            return action + cible
+
     def doOrder(self):
         order = self.orders_hud.get_order()
         team = self.get_team(self.selectedPlayer[0][0])
         for t in [1,2]:
             for i in range(self.get_team(t).nb_players):
-                if(self.get_team(t).player_name(i) == order[1]):
+                if(self.playerToName((t,i)) == order[1]):
                     order[1] = (t,i)
                 if(len(order) == 4):
-                    if(self.get_team(t).player_name(i) == order[2]):
+                    if(self.playerToName((t,i)) == order[2]):
                         order[2] = (t,i)
         team.giveOrder(self.selectedPlayer[0][1],order)
         self.selectedPlayer[1] = order
+
+    def getStateForCSVs(self):
+        posBall = self.state.ball.position
+        ballNextLikelyPosition = self.state.ball.nextLikelyPosition
+        ballTeam = self.state.ballControl
+        players = {}
+        players[1] = {}
+        players[2] = {}
+        for k, v in self.state.players:
+            players[k][v] = (self.state.player_state(k, v).position, self.get_team(k).player_type(v))
+        team1pos = ''
+        team2pos = ''
+        team1type = ''
+        team2type = ''
+        for k in players:
+            if k == 1:
+                for p in players[k]:
+                    if team1pos == '':
+                        team1pos += str(players[k][p][0])
+                    else:
+                        team1pos += '/' + str(players[k][p][0])
+                    if team1type == '':
+                        team1type += players[k][p][1]
+                    else:
+                        team1type += '/' + players[k][p][1]
+            else:
+                for p in players[k]:
+                    if team2pos == '':
+                        team2pos += str(players[k][p][0])
+                    else:
+                        team2pos += '/' + str(players[k][p][0])
+                    if team2type == '':
+                        team2type += players[k][p][1]
+                    else:
+                        team2type += '/' + players[k][p][1]
+
+        return [posBall, ballNextLikelyPosition, team1pos, team1type, team2pos, team2type, ballTeam]
 
     def on_mouse_press(self,x,y,button,modifiers):
         lengthWindow, heightWindow = self.get_size() #Taille de l'interface en pixel
@@ -134,7 +219,11 @@ class SimuGUI(pyglet.window.Window):
         if(x_n >= settings.GAME_WIDTH): #Selection dans Order_Hud
             if (x_n >= settings.GAME_WIDTH + 12 and x_n <= settings.GAME_WIDTH + 33.3) and ((y_n >= settings.GAME_HEIGHT - 57) and (y_n <= settings.GAME_HEIGHT - 50.5)):
                 self.doOrder()
+                ### écrire les données de l'état (matrice X)
+                if(self.simu.shouldSaveData):
+                    self.csvHandler.addDataToCSVs([self.selectedPlayer[0]]+ self.selectedPlayer[1], self.getStateForCSVs())
             elif(x_n >= settings.GAME_WIDTH + 37 and x_n <= settings.GAME_WIDTH + 53) and ((y_n >= settings.GAME_HEIGHT - 57) and (y_n <= settings.GAME_HEIGHT - 50.5)):
+                #self.selectedPlayer[1] = None
                 team = self.get_team(self.selectedPlayer[0][0])
                 team.resetOrder(self.selectedPlayer[0][1])
         else: #Selection sur le terrain
@@ -194,6 +283,7 @@ class SimuGUI(pyglet.window.Window):
                             if (not isNearest):
                                 nearestTargets.append([(k, v), newValue])
                 otherTargets = [("Balle",self.state.ball.position.distance(Vector2D(x_n, y_n)))]
+                otherTargets.append(("BalleProchaine",self.state.ball.position.distance(Vector2D(x_n, y_n))))
                 otherTargets.append(("CornerTopLeft",Vector2D(0,GAME_HEIGHT).distance(Vector2D(x_n, y_n))))
                 otherTargets.append(("CornerTopRight", Vector2D(GAME_WIDTH,GAME_HEIGHT).distance(Vector2D(x_n, y_n))))
                 otherTargets.append(("CornerBottomLeft", Vector2D(0, 0).distance(Vector2D(x_n, y_n))))
@@ -242,7 +332,6 @@ class SimuGUI(pyglet.window.Window):
                         if (alreadySelected):  # Tous les joueurs proches ont déjà été sélectionnés ! On recommence le parcours des joueurs !
                             self.lastTargetsSelectedRecently = [nearestTargets[0][0]]
                             selectedTarget = nearestTargets[0][0]
-                    print(self.orders_hud.currentTarget=="B")
                     if(button == 4 and not self.orders_hud.currentTarget=="B"):
                         self.selectedTarget = selectedTarget
                     elif(button == 2 or (button == 4 and self.orders_hud.currentTarget=="B")):
@@ -293,28 +382,22 @@ class SimuGUI(pyglet.window.Window):
         #for k, v in self.state.players:
         #    name_p = self.get_team(k).player_name(v)
         #    targets.append(name_p)
-        currentAction = "Fonceur"
-        if(self.selectedPlayer[1] != None):
-            if (type(self.selectedPlayer[1][1]) == tuple):
-                currentAction = self.selectedPlayer[1][0] + " " + self.get_team(self.selectedPlayer[1][1][0]).player_name(self.selectedPlayer[1][1][1])
-            else:
-                currentAction = self.selectedPlayer[1][0] + " " +self.selectedPlayer[1][1]
+        currentAction = self.orderToString(self.get_team(self.selectedPlayer[0][0]).strategy(self.selectedPlayer[0][1]).getCurrentOrder())
         if(type(self.selectedTarget) == tuple):
-            target = str(self.get_team(self.selectedTarget[0]).player_name(self.selectedTarget[1]))
+            target = self.playerToName(self.selectedTarget)
         else:
             target = self.selectedTarget
         if (type(self.selectedTarget2) == tuple):
-            target2 = str(self.get_team(self.selectedTarget2[0]).player_name(self.selectedTarget2[1]))
+            target2 = self.playerToName(self.selectedTarget2)
         else:
             target2 = self.selectedTarget2
-        self.orders_hud.set_val(player=str(self.get_team(self.selectedPlayer[0][0]).player_name(self.selectedPlayer[0][1])), ongoing_order=currentAction, target=target, target2 = target2)
+        self.orders_hud.set_val(player=self.playerToName(self.selectedPlayer[0]), ongoing_order=currentAction, target=target, target2 = target2)
         ######################
         for k in self.state.players:
             self._sprites[k].position = self.state.player_state(k[0], k[1]).position
             self._sprites[k].vitesse= self.state.player_state(k[0], k[1]).vitesse
         if hasattr(self.state,"zones_1"):
             for i,z in enumerate(self.state.zones_1):
-                print(i,z)
                 self._sprites[(i,"z1")].position=z.position
                 self._sprites[(i,"z1")].set_color( GREEN_COLOR if self.state.zones_1_bool[i] else RED_COLOR)
         if hasattr(self.state,"zones_2"):
@@ -466,6 +549,7 @@ class SimuGUI(pyglet.window.Window):
 
     def end_round(self, team1, team2, state):
         self.change_state(state)
+        self.resetOrderGUI()
         pass
 
     def end_match(self, team1, team2, state):
