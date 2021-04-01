@@ -5,8 +5,10 @@ from .utils import Vector2D
 
 class csvHandler(object):
 
-    def __init__(self):
+    def __init__(self, myTeam, nbPlayer):
         self.lastStateSaved = None
+        self.myTeam = myTeam
+        self.nbPlayer = nbPlayer
 
     def import_csv(self, filename):
         data = []
@@ -17,12 +19,15 @@ class csvHandler(object):
                     data.append(row)
         return data
 
-    def saveStateInCSV(self, currentState):
+    def saveStateInCSV(self, currentState, absolu):
         if os.path.isfile('../soccersimulator/etats.csv') == False:
             with open('../soccersimulator/etats.csv', 'w', newline='') as f:
                 writer = csv.writer(f, delimiter='_')
-                writer.writerow(['ballPos', "nextLikelyPosition", "posTeam1", "typeTeam1", "posTeam2", "typeTeam2",
-                                 "ballWithTeam"])
+                if absolu:
+                    writer.writerow(['ballPos', "nextLikelyPosition", "posTeam1", "typeTeam1", "posTeam2", "typeTeam2", "ballWithTeam"])
+                else:
+                    writer.writerow(['posPlayer', 'typePlayer', 'distAllieLPP', 'typeAllieLPP', 'distAdvLPP', 'typeAdvLPP', 'distBall', 'distSaCage', 'distCageAdv',
+                        'distDefCage1', 'typeDefCage1', 'distAdvCage1', 'typeAdvCage1', 'distBallCage1', 'distDefCage2', 'typeDefCage2', 'distAdvCage2', 'typeAdvCage2', 'distBallCage2',  ])
         with open('../soccersimulator/etats.csv', 'a', newline='') as f:
             writer = csv.writer(f, delimiter='_')
             writer.writerow(currentState)
@@ -54,9 +59,12 @@ class csvHandler(object):
         else:
             with open('../soccersimulator/ordres.csv', 'a', newline='') as f:
                 writer = csv.writer(f, delimiter='_')
+                for elt in order:
+                    if elt == "se déplace vers":
+                        elt.replace("déplace", "deplace")
                 writer.writerow([order])
 
-    def addDataToCSVs(self, order, currentState):
+    def addDataToCSVs(self, order, currentState, absolu):
         if (self.lastStateSaved is None) or self.lastStateSaved != currentState:
             self.lastStateSaved = currentState
             appendFile = False
@@ -64,7 +72,7 @@ class csvHandler(object):
             appendFile = True
         self.saveOrderInCSV(order, appendFile=appendFile)
         if not appendFile:
-            self.saveStateInCSV(currentState)
+            self.saveStateInCSV(currentState, absolu)
 
     def combineCsv(self, filePath1, filePath2, outputPath, mode='w'):
         data1 = self.import_csv(filePath1)
@@ -120,6 +128,69 @@ class csvHandler(object):
             result.append(ordersDico)
         return result
 
+    def newReadStateCsv(self,stateFilePath):
+        stateData = self.import_csv(stateFilePath)[1:]
+        result = []
+        for state in stateData:
+            newState = dict()
+            #Calcul des nombres de joueurs par équipe !
+            nbJoueurTot = sum(self.nbPlayer)
+            nbJoueurTeam0 = self.nbPlayer[0]
+            #Joueur de l'équipe 0
+            team1 = []
+            for i in range(nbJoueurTeam0):
+                pos = state[i][1:].split(")")
+                joueur = pos[1].split(",")
+                type = joueur[1][2:-1]
+                distAllieLPP = float(joueur[2][1:])
+                typeAllieLPP = joueur[3][2:-1]
+                distAdvLPP = float(joueur[4][1:])
+                typeAdvLPP = joueur[5][2:-1]
+                distBall = float(joueur[6][1:])
+                distSaCage = float(joueur[7][1:])
+                distCageAdv = float(joueur[8][1:-1])
+                team1.append({"position": self.strToFloatTuple(pos[0]+")"), "type": type, "distAllieLPP":distAllieLPP,"typeAllieLPP":typeAllieLPP,"distAdvLPP":distAdvLPP,"typeAdvLPP":typeAdvLPP,"distBall":distBall,"distSaCage":distSaCage,"distCageAdv":distCageAdv})
+            newState["joueursTeam1"] = team1
+            # Joueur de l'équipe 1
+            team1 = []
+            for i in range(nbJoueurTot-nbJoueurTeam0):
+                pos = state[i][1:].split(")")
+                joueur = pos[1].split(",")
+                type = joueur[1][2:-1]
+                distAllieLPP = float(joueur[2][1:])
+                typeAllieLPP = joueur[3][2:-1]
+                distAdvLPP = float(joueur[4][1:])
+                typeAdvLPP = joueur[5][2:-1]
+                distBall = float(joueur[6][1:])
+                distSaCage = float(joueur[7][1:])
+                distCageAdv = float(joueur[8][1:-1])
+                team1.append(
+                    {"position": self.strToFloatTuple(pos[0] + ")"), "type": type, "distAllieLPP": distAllieLPP,
+                     "typeAllieLPP": typeAllieLPP, "distAdvLPP": distAdvLPP, "typeAdvLPP": typeAdvLPP,
+                     "distBall": distBall, "distSaCage": distSaCage, "distCageAdv": distCageAdv})
+            newState["joueursTeam2"] = team1
+            # Position de l'équipe 0
+            posit1 = dict()
+            startIndex = nbJoueurTot
+            posit1["distAdvLPPCage"] = state[startIndex]
+            posit1["typeAdvLPPCage"] = state[startIndex+1]
+            posit1["distDefLPPCage"] = state[startIndex+2]
+            posit1["typeDefLPPCage"] = state[startIndex+3]
+            posit1["distBallCage"] = state[startIndex+4]
+            newState["positionsTeam1"] = posit1
+            # Position de l'équipe 1
+            posit2 = dict()
+            startIndex = nbJoueurTot+5
+            posit2["distAdvLPPCage"] = state[startIndex]
+            posit2["typeAdvLPPCage"] = state[startIndex + 1]
+            posit2["distDefLPPCage"] = state[startIndex + 2]
+            posit2["typeDefLPPCage"] = state[startIndex + 3]
+            posit2["distBallCage"] = state[startIndex + 4]
+            newState["positionsTeam2"] = posit2
+            #Ajout au resultat final
+            result.append(newState)
+        return result
+
     def duplicateData(self,stateFilePath,orderFilePath, outputStatePath, outputOrderPath, addOnlySymetric = False):
         #Lecture des donnees
         orderData = self.import_csv(orderFilePath)
@@ -159,6 +230,8 @@ class csvHandler(object):
         for carac in order[1:-1]:
             if (not (carac == " " and len(current) == 0 and len(liste) > 0)):
                 if carac == ',' and not isInTuple:
+                    if current == "se deplace vers":
+                        current = "se déplace vers"
                     liste.append(current)
                     current = ""
                 else:
@@ -260,8 +333,3 @@ class csvHandler(object):
         tupl = self.strToFloatTuple(string)
         symTuple = self.getSymetricPosition(tupl)
         return self.floatTupleToStr(symTuple)
-
-
-
-
-
