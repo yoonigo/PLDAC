@@ -416,7 +416,6 @@ class SoccerTeam(object):
     """
 
     def __init__(self, name=None, players=None, login=None, simu = None, entraineur = None):
-    #def __init__(self, name=None, players=None, login=None, simu = None, knn = False):
         """
         :param name: nom de l'equipe
         :param players: liste de joueur Player(name,strategy)
