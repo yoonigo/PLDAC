@@ -416,6 +416,7 @@ class SoccerTeam(object):
     """
 
     def __init__(self, name=None, players=None, login=None, simu = None, entraineur = None):
+    #def __init__(self, name=None, players=None, login=None, simu = None, knn = False):
         """
         :param name: nom de l'equipe
         :param players: liste de joueur Player(name,strategy)
@@ -438,6 +439,7 @@ class SoccerTeam(object):
         self.players.append(Player(name,strategy,type))
         if(self.entraineur != None):
             strats = self.entraineur.getOrderStrategies()
+            print(strats)
             strats[len(self.players)-1]=strategy
             self.entraineur.setOrderStrategies(strats)
         return self
@@ -525,7 +527,7 @@ class SoccerTeam(object):
 class Simulation(object):
     ETAT = None
 
-    def __init__(self,team1=None,team2=None, shouldSaveData = False, max_steps = settings.MAX_GAME_STEPS,initial_state=None,**kwargs):
+    def __init__(self,team1=None,team2=None, shouldSaveData = True, max_steps = settings.MAX_GAME_STEPS,initial_state=None,**kwargs):
         self.team1, self.team2 = team1 or SoccerTeam(),team2 or SoccerTeam()
         #######################################################
         if(hasattr(self.team1.entraineur, 'setter')):
