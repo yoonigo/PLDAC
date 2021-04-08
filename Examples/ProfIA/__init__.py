@@ -2,7 +2,7 @@ from .strategies import FonceurStrategyWithOrder,DefenseurStrategy,FonceurStrate
 from .optimization import ParamSearch
 from soccersimulator import SoccerTeam, csvHandler
 from .tools import SuperState
-from .entraineur import EntraineurRandom, EntraineurKNN
+from .entraineur import EntraineurRandom, EntraineurKNN, EntraineurDistribueAbs, EntraineurDistribueRel
 
 def get_team(nb_players):
 	myteam = SoccerTeam(name="ProfTeam")
@@ -16,7 +16,7 @@ def get_team(nb_players):
 		myteam.add("Joueur 2",RandomStrategy())
 		myteam.add("Joueur 3",RandomStrategy())
 		myteam.add("Joueur 4",RandomStrategy())
-	return myteam	
+	return myteam
 
 def get_team_challenge(num):
 	myteam = SoccerTeam(name="MaTeamChallenge")
