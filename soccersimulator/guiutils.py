@@ -305,7 +305,7 @@ class Orders_hud(object):
         self.sprites["instruction1"] = TextSprite(position=Vector2D(settings.GAME_WIDTH + 5, settings.GAME_HEIGHT),
                                              color=[0,202,255,255],
                                              scale=0.05)
-        self.sprites["instruction1"]._label.text = "1) Cliquez sur le joueur pour le sélectionner"
+        self.sprites["instruction1"]._label.text = "1) Cliquez sur le joueur pour le selectionner"
         self.sprites["instruction2"] = TextSprite(position=Vector2D(settings.GAME_WIDTH + 5, settings.GAME_HEIGHT - 5),
                                              color=[0,202,255,255],
                                              scale=0.05)
@@ -363,7 +363,7 @@ class Orders_hud(object):
     def set_val(self, **kwargs):
         for k, v in kwargs.items():
             if k == "player":
-                self.sprites[k]._label.text = "Joueur sélectionné : "+v
+                self.sprites[k]._label.text = "Joueur selectionne : "+v
                 self.player = v
             elif k == "ongoing_order": #A CONNECTE AU RESTE (pour l'instant c'est juste une string)
                 self.sprites[k]._label.text = "Action en cours : "+v
@@ -418,8 +418,8 @@ class Orders_hud(object):
 
     def change_action(self):
         if self.action == "tire vers":
-            self.action = "se déplace vers"
-        elif self.action == "se déplace vers":
+            self.action = "se deplace vers"
+        elif self.action == "se deplace vers":
             self.action = "dribble vers"
         else:
             self.action = "tire vers"

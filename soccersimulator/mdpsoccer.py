@@ -83,7 +83,7 @@ class Ball(MobileMixin):
 
     @property
     def nextLikelyPosition(self):
-        ## prédit la position du ballon apres une passe ou un tir vers le goal pour permettre une interception
+        ## predit la position du ballon apres une passe ou un tir vers le goal pour permettre une interception
         currentVitesse = self.vitesse.copy()
         currentPos = self.position.copy() + currentVitesse
         while currentVitesse.norm > 0.1:
@@ -207,7 +207,7 @@ class SoccerState(object):
         self.goal = kwargs.pop('goal', 0)
         self.__dict__.update(kwargs)
         ###############################################
-        self.ballControl = 1 #l'équipe qui shoot le ballon à l'instant même
+        self.ballControl = 1 #l'equipe qui shoot le ballon à l'instant même
 
 
     def __str__(self):
@@ -438,6 +438,7 @@ class SoccerTeam(object):
         self.players.append(Player(name,strategy,type))
         if(self.entraineur != None):
             strats = self.entraineur.getOrderStrategies()
+            print(strats)
             strats[len(self.players)-1]=strategy
             self.entraineur.setOrderStrategies(strats)
         return self
@@ -525,7 +526,7 @@ class SoccerTeam(object):
 class Simulation(object):
     ETAT = None
 
-    def __init__(self,team1=None,team2=None, shouldSaveData = False, max_steps = settings.MAX_GAME_STEPS,initial_state=None,**kwargs):
+    def __init__(self,team1=None,team2=None, shouldSaveData = True, max_steps = settings.MAX_GAME_STEPS,initial_state=None,**kwargs):
         self.team1, self.team2 = team1 or SoccerTeam(),team2 or SoccerTeam()
         #######################################################
         if(hasattr(self.team1.entraineur, 'setter')):

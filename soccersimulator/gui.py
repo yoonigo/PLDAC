@@ -64,7 +64,7 @@ class SimuGUI(pyglet.window.Window):
         self.hud = Hud()
         ###################################################################################
         self.orders_hud = Orders_hud()
-        self.csvHandler = csvHandler()
+        self.csvHandler = csvHandler(1,8) ## TEMPORAIRE
         self.lastPlayersSelectedRecently = []  # TEMPORAIRE IL FAUT DECIDER D'OU LE METTRE
         self.selectedPlayer = [(1, 0), None]
         self.lastTargetsSelectedRecently = []  # TEMPORAIRE IL FAUT DECIDER D'OU LE METTRE
@@ -72,6 +72,7 @@ class SimuGUI(pyglet.window.Window):
         self.selectedTarget2 = "SaCage"
         self.enregistrer = True
         self.lastStateSaved = None
+        self.absolu = False
         ###################################################################################
         ###
         pyglet.clock.schedule_interval(self.update, 1. / 25)
@@ -105,11 +106,6 @@ class SimuGUI(pyglet.window.Window):
             self._waiting_key = False
         else:
              self._mode_next = self.MANUAL
-
-
-
-
-
 
     def playerToName(self,player):
         return self.get_team(player[0]).player_name(player[1])
@@ -175,42 +171,239 @@ class SimuGUI(pyglet.window.Window):
         team.giveOrder(self.selectedPlayer[0][1],order)
         self.selectedPlayer[1] = order
 
-    def getStateForCSVs(self):
-        posBall = self.state.ball.position
-        ballNextLikelyPosition = self.state.ball.nextLikelyPosition
-        ballTeam = self.state.ballControl
-        players = {}
-        players[1] = {}
-        players[2] = {}
-        for k, v in self.state.players:
-            players[k][v] = (self.state.player_state(k, v).position, self.get_team(k).player_type(v))
-        team1pos = ''
-        team2pos = ''
-        team1type = ''
-        team2type = ''
-        for k in players:
-            if k == 1:
-                for p in players[k]:
-                    if team1pos == '':
-                        team1pos += str(players[k][p][0])
-                    else:
-                        team1pos += '/' + str(players[k][p][0])
-                    if team1type == '':
-                        team1type += players[k][p][1]
-                    else:
-                        team1type += '/' + players[k][p][1]
-            else:
-                for p in players[k]:
-                    if team2pos == '':
-                        team2pos += str(players[k][p][0])
-                    else:
-                        team2pos += '/' + str(players[k][p][0])
-                    if team2type == '':
-                        team2type += players[k][p][1]
-                    else:
-                        team2type += '/' + players[k][p][1]
+    def getPlayerRelativeState(self, team, id):
+        playerPosition = self.state.player_state(team, id).position
+        playerType = self.get_team(team).player_type(id)
 
-        return [posBall, ballNextLikelyPosition, team1pos, team1type, team2pos, team2type, ballTeam]
+        if(team == 1):
+            # Distance à la cage de son equipe
+            SaCage = Vector2D(0, GAME_HEIGHT/2)
+            distCage = playerPosition.distance(SaCage)
+            # Distance à la cage adverse
+            CageAdverse = Vector2D(GAME_WIDTH, GAME_HEIGHT/2)
+            distCageAdverse = playerPosition.distance(CageAdverse)
+        else:
+            # Distance à la cage de son equipe
+            SaCage = Vector2D(GAME_WIDTH, GAME_HEIGHT/2)
+            distCage = playerPosition.distance(SaCage)
+            # Distance à la cage adverse
+            CageAdverse = Vector2D(0, GAME_HEIGHT/2)
+            distCageAdverse = playerPosition.distance(CageAdverse)
+
+        # Distances à l'allie le plus proche et à l'adversaire le plus proche + leurs types
+        allieDist=[]
+        allieType=[]
+        advDist=[]
+        advType=[]
+
+        for k, v in self.state.players:
+            if k == team and id == v:
+                continue
+            if k == team:
+                # distance à l'allie le plus proche + type
+                distance = self.state.player_state(k,v).position.distance(playerPosition)
+                type = self.get_team(k).player_type(v)
+                allieDist.append(distance)
+                allieType.append(type)
+            else:
+                #distance à l'adversaire le plus proche + type
+                distance = self.state.player_state(k,v).position.distance(playerPosition)
+                type = self.get_team(k).player_type(v)
+                advDist.append(distance)
+                advType.append(type)
+
+        # distance à l'allie le plus proche + type
+        index = min(range(len(allieDist)), key=allieDist.__getitem__)
+        APP = allieDist[index]
+        typeAPP = allieType[index]
+
+        #distance à l'adversaire le plus proche + type
+        index = min(range(len(advDist)), key=advDist.__getitem__)
+        AdvPP = advDist[index]
+        typeAdvPP = advType[index]
+
+        # Distance à la Balle
+        dist2Ball = playerPosition.distance(self.state.ball.position)
+
+        res = [(team, id),(playerPosition.x, playerPosition.y), playerType, APP, typeAPP, AdvPP, typeAdvPP, dist2Ball, distCage, distCageAdverse]
+        return res
+
+
+    def getStateForCSVs(self):
+        states = []
+        CageTeam1 = Vector2D(0, GAME_HEIGHT / 2)
+        CageTeam2 = Vector2D(GAME_WIDTH, GAME_HEIGHT / 2)
+        distDef1 = []
+        typesDef1 = []
+        distAdv1 = []
+        typesAdv1 = []
+        distDef2 = []
+        typesDef2 = []
+        distAdv2 = []
+        typesAdv2 = []
+        for k, v in self.state.players:
+            states.append(self.getPlayerRelativeState(k, v))
+            if k == 1:
+                # Distances entre la cage de l'equipe 1 et les joueurs de l'equipe 1
+                dist = CageTeam1.distance(self.state.player_state(k, v).position)
+                type = self.get_team(k).player_type(v)
+                distDef1.append(dist)
+                typesDef1.append(type)
+                # Distances entre la cage de l'equipe 2 et les joueurs de l'equipe adverse 1
+                dist = CageTeam2.distance(self.state.player_state(k, v).position)
+                type = self.get_team(k).player_type(v)
+                distAdv2.append(dist)
+                typesAdv2.append(type)
+            else:
+                # Distances entre la cage de l'equipe 1 et les joueurs de l'equipe adverse 2
+                dist = CageTeam1.distance(self.state.player_state(k, v).position)
+                type = self.get_team(k).player_type(v)
+                distAdv1.append(dist)
+                typesAdv1.append(type)
+                # Distances entre la cage de l'equipe 2 et les joueurs de l'equipe 2
+                dist = CageTeam2.distance(self.state.player_state(k, v).position)
+                type = self.get_team(k).player_type(v)
+                distDef2.append(dist)
+                typesDef2.append(type)
+
+        # Distance CageTeam1 et defenseur allie le plus proche
+        index = min(range(len(distDef1)), key=distDef1.__getitem__)
+        distDefC1 = distDef1[index]
+        typeDefC1 = typesDef1[index]
+        states.append(distDefC1)
+        states.append(typeDefC1)
+        # Distance CageTeam1 et attaquant adverse le plus proche
+        index = min(range(len(distAdv1)), key=distAdv1.__getitem__)
+        distAdvC1 = distAdv1[index]
+        typeAdvC1 = typesAdv1[index]
+        states.append(distAdvC1)
+        states.append(typeAdvC1)
+        # Distance entre la balle et la cage de l'equipe 1
+        states.append(CageTeam1.distance(self.state.ball.position))
+        # Distance CageTeam2 et defenseur allie le plus proche
+        index = min(range(len(distDef2)), key=distDef2.__getitem__)
+        distDefC2 = distDef2[index]
+        typeDefC2 = typesDef2[index]
+        states.append(distDefC2)
+        states.append(typeDefC2)
+        # Distance CageTeam2 et attaquant adverse le plus proche
+        index = min(range(len(distAdv2)), key=distAdv2.__getitem__)
+        distAdvC2 = distAdv2[index]
+        typeAdvC2 = typesAdv2[index]
+        states.append(distAdvC2)
+        states.append(typeAdvC2)
+        # Distance entre la balle et la cage de l'equipe 2
+        states.append(CageTeam2.distance(self.state.ball.position))
+        # Position de la balle et controle de la balle
+        states.append(self.state.ball.position)
+        states.append(self.state.ball.nextLikelyPosition)
+        states.append(self.state.ballControl)
+        return states
+
+    @DeprecationWarning
+    def OLDgetStateForCSVs(self):
+        if self.absolu: #sauvegarder les donnees dans un repère absolu
+            posBall = self.state.ball.position
+            ballNextLikelyPosition = self.state.ball.nextLikelyPosition
+            ballTeam = self.state.ballControl
+            players = {}
+            players[1] = {}
+            players[2] = {}
+            for k, v in self.state.players:
+                players[k][v] = (self.state.player_state(k, v).position, self.get_team(k).player_type(v))
+            team1pos = ''
+            team2pos = ''
+            team1type = ''
+            team2type = ''
+            for k in players:
+                if k == 1:
+                    for p in players[k]:
+                        if team1pos == '':
+                            team1pos += str(players[k][p][0])
+                        else:
+                            team1pos += '/' + str(players[k][p][0])
+                        if team1type == '':
+                            team1type += players[k][p][1]
+                        else:
+                            team1type += '/' + players[k][p][1]
+                else:
+                    for p in players[k]:
+                        if team2pos == '':
+                            team2pos += str(players[k][p][0])
+                        else:
+                            team2pos += '/' + str(players[k][p][0])
+                        if team2type == '':
+                            team2type += players[k][p][1]
+                        else:
+                            team2type += '/' + players[k][p][1]
+
+            return [posBall, ballNextLikelyPosition, team1pos, team1type, team2pos, team2type, ballTeam]
+        else: #sauvegarder les donnees relatives à chaque joueur
+            states = []
+            CageTeam1 = Vector2D(0, GAME_HEIGHT/2)
+            CageTeam2 = Vector2D(GAME_WIDTH, GAME_HEIGHT/2)
+            distDef1=[]
+            typesDef1=[]
+            distAdv1=[]
+            typesAdv1=[]
+            distDef2=[]
+            typesDef2=[]
+            distAdv2=[]
+            typesAdv2=[]
+            for k, v in self.state.players:
+                states.append(self.getPlayerRelativeState(k,v))
+                if k == 1:
+                    # Distances entre la cage de l'equipe 1 et les joueurs de l'equipe 1
+                    dist = CageTeam1.distance(self.state.player_state(k,v).position)
+                    type = self.get_team(k).player_type(v)
+                    distDef1.append(dist)
+                    typesDef1.append(type)
+                    # Distances entre la cage de l'equipe 2 et les joueurs de l'equipe adverse 1
+                    dist = CageTeam2.distance(self.state.player_state(k,v).position)
+                    type = self.get_team(k).player_type(v)
+                    distAdv2.append(dist)
+                    typesAdv2.append(type)
+                else:
+                    # Distances entre la cage de l'equipe 1 et les joueurs de l'equipe adverse 2
+                    dist = CageTeam1.distance(self.state.player_state(k,v).position)
+                    type = self.get_team(k).player_type(v)
+                    distAdv1.append(dist)
+                    typesAdv1.append(type)
+                    # Distances entre la cage de l'equipe 2 et les joueurs de l'equipe 2
+                    dist = CageTeam2.distance(self.state.player_state(k,v).position)
+                    type = self.get_team(k).player_type(v)
+                    distDef2.append(dist)
+                    typesDef2.append(type)
+
+            # Distance CageTeam1 et defenseur allie le plus proche
+            index = min(range(len(distDef1)), key=distDef1.__getitem__)
+            distDefC1 = distDef1[index]
+            typeDefC1 = typesDef1[index]
+            states.append(distDefC1)
+            states.append(typeDefC1)
+            # Distance CageTeam1 et attaquant adverse le plus proche
+            index = min(range(len(distAdv1)), key=distAdv1.__getitem__)
+            distAdvC1 = distAdv1[index]
+            typeAdvC1 = typesAdv1[index]
+            states.append(distAdvC1)
+            states.append(typeAdvC1)
+            # Distance entre la balle et la cage de l'equipe 1
+            states.append(CageTeam1.distance(self.state.ball.position))
+            # Distance CageTeam2 et defenseur allie le plus proche
+            index = min(range(len(distDef2)), key=distDef2.__getitem__)
+            distDefC2 = distDef2[index]
+            typeDefC2 = typesDef2[index]
+            states.append(distDefC2)
+            states.append(typeDefC2)
+            # Distance CageTeam2 et attaquant adverse le plus proche
+            index = min(range(len(distAdv2)), key=distAdv2.__getitem__)
+            distAdvC2 = distAdv2[index]
+            typeAdvC2 = typesAdv2[index]
+            states.append(distAdvC2)
+            states.append(typeAdvC2)
+            # Distance entre la balle et la cage de l'equipe 2
+            states.append(CageTeam2.distance(self.state.ball.position))
+            return states
 
     def on_mouse_press(self,x,y,button,modifiers):
         lengthWindow, heightWindow = self.get_size() #Taille de l'interface en pixel
@@ -219,9 +412,9 @@ class SimuGUI(pyglet.window.Window):
         if(x_n >= settings.GAME_WIDTH): #Selection dans Order_Hud
             if (x_n >= settings.GAME_WIDTH + 12 and x_n <= settings.GAME_WIDTH + 33.3) and ((y_n >= settings.GAME_HEIGHT - 57) and (y_n <= settings.GAME_HEIGHT - 50.5)):
                 self.doOrder()
-                ### écrire les données de l'état (matrice X)
+                ### ecrire les donnees de l'etat (matrice X)
                 if(self.simu.shouldSaveData):
-                    self.csvHandler.addDataToCSVs([self.selectedPlayer[0]]+ self.selectedPlayer[1], self.getStateForCSVs())
+                    self.csvHandler.addDataToCSVs([self.selectedPlayer[0]]+ self.selectedPlayer[1], self.getStateForCSVs(), self.absolu)
             elif(x_n >= settings.GAME_WIDTH + 37 and x_n <= settings.GAME_WIDTH + 53) and ((y_n >= settings.GAME_HEIGHT - 57) and (y_n <= settings.GAME_HEIGHT - 50.5)):
                 #self.selectedPlayer[1] = None
                 team = self.get_team(self.selectedPlayer[0][0])
@@ -231,10 +424,10 @@ class SimuGUI(pyglet.window.Window):
                 nearestPlayers = [] #Liste des joueurs proches de la souris
                 for k, v in self.state.players:
                     newValue = self.state.player_state(k,v).position.distance(Vector2D(x_n, y_n))
-                    if(newValue <= DISTANCEMAXALASOURIS): #Si le joueur dépasse la distance maximale fixée, on ne le considère pas
+                    if(newValue <= DISTANCEMAXALASOURIS): #Si le joueur depasse la distance maximale fixee, on ne le considère pas
                         if(not nearestPlayers): #Si la liste est vide, le premier joueur est le plus proche
                             nearestPlayers.append([(k,v),newValue])
-                        else: #La liste sera ordonnée et completée incrémentalement (indice 0 = le plus proche)
+                        else: #La liste sera ordonnee et completee incrementalement (indice 0 = le plus proche)
                             index = 0
                             isNearest = False
                             while(index<len(nearestPlayers) and not isNearest):
@@ -247,7 +440,7 @@ class SimuGUI(pyglet.window.Window):
                                 nearestPlayers.append([(k,v),newValue])
                 if(nearestPlayers): #Si au moins un joueur est suffisament proche
                     if(len(nearestPlayers) == 1): #S'il n'y a qu'un joueur proche
-                        self.lastPlayersSelectedRecently = [] #Plus besoin de garder en mémoire les joueurs
+                        self.lastPlayersSelectedRecently = [] #Plus besoin de garder en memoire les joueurs
                         selectedPlayer = nearestPlayers[0][0]
                     else:
                         alreadySelected = True
@@ -257,10 +450,10 @@ class SimuGUI(pyglet.window.Window):
                             if(joueur in self.lastPlayersSelectedRecently):
                                 index+=1
                             else:
-                                self.lastPlayersSelectedRecently.append(joueur) #On sélectionne ce joueur et on considère qu'il a déjà été vu
+                                self.lastPlayersSelectedRecently.append(joueur) #On selectionne ce joueur et on considère qu'il a dejà ete vu
                                 selectedPlayer = joueur
                                 alreadySelected = False
-                        if(alreadySelected): #Tous les joueurs proches ont déjà été sélectionnés ! On recommence le parcours des joueurs !
+                        if(alreadySelected): #Tous les joueurs proches ont dejà ete selectionnes ! On recommence le parcours des joueurs !
                             self.lastPlayersSelectedRecently = [nearestPlayers[0][0]]
                             selectedPlayer = nearestPlayers[0][0]
                     self.selectedPlayer = [selectedPlayer,self.get_team(selectedPlayer[0]).strategy(selectedPlayer[1]).getCurrentOrder()]
@@ -268,10 +461,10 @@ class SimuGUI(pyglet.window.Window):
                 nearestTargets = []  # Liste des cibles proches de la souris
                 for k, v in self.state.players:
                     newValue = self.state.player_state(k, v).position.distance(Vector2D(x_n, y_n))
-                    if (newValue <= DISTANCEMAXALASOURIS):  # Si le joueur dépasse la distance maximale fixée, on ne le considère pas
+                    if (newValue <= DISTANCEMAXALASOURIS):  # Si le joueur depasse la distance maximale fixee, on ne le considère pas
                         if (not nearestTargets):  # Si la liste est vide, le premier joueur est le plus proche
                             nearestTargets.append([(k, v), newValue])
-                        else:  # La liste sera ordonnée et completée incrémentalement (indice 0 = le plus proche)
+                        else:  # La liste sera ordonnee et completee incrementalement (indice 0 = le plus proche)
                             index = 0
                             isNearest = False
                             while (index < len(nearestTargets) and not isNearest):
@@ -299,10 +492,10 @@ class SimuGUI(pyglet.window.Window):
                     otherTargets.append(("CageAdverse", Vector2D(0, GAME_HEIGHT/2).distance(Vector2D(x_n, y_n))))
 
                 for target in otherTargets:
-                    if (target[1] <= DISTANCEMAXALASOURIS):  # Si la cible dépasse la distance maximale fixée, on ne la considère pas
+                    if (target[1] <= DISTANCEMAXALASOURIS):  # Si la cible depasse la distance maximale fixee, on ne la considère pas
                         if (not nearestTargets):  # Si la liste est vide, la premiere cible est la plus proche
                             nearestTargets.append([target[0], target[1]])
-                        else:  # La liste sera ordonnée et completée incrémentalement (indice 0 = le plus proche)
+                        else:  # La liste sera ordonnee et completee incrementalement (indice 0 = le plus proche)
                             index = 0
                             isNearest = False
                             while (index < len(nearestTargets) and not isNearest):
@@ -316,7 +509,7 @@ class SimuGUI(pyglet.window.Window):
 
                 if (nearestTargets):  # Si au moins une cible est suffisament proche
                     if (len(nearestTargets) == 1):  # S'il n'y a qu'un joueur proche
-                        self.lastTargetsSelectedRecently = []  # Plus besoin de garder en mémoire les joueurs
+                        self.lastTargetsSelectedRecently = []  # Plus besoin de garder en memoire les joueurs
                         selectedTarget = nearestTargets[0][0]
                     else:
                         alreadySelected = True
@@ -326,10 +519,10 @@ class SimuGUI(pyglet.window.Window):
                             if (joueur in self.lastTargetsSelectedRecently):
                                 index += 1
                             else:
-                                self.lastTargetsSelectedRecently.append(joueur)  # On sélectionne ce joueur et on considère qu'il a déjà été vu
+                                self.lastTargetsSelectedRecently.append(joueur)  # On selectionne ce joueur et on considère qu'il a dejà ete vu
                                 selectedTarget = joueur
                                 alreadySelected = False
-                        if (alreadySelected):  # Tous les joueurs proches ont déjà été sélectionnés ! On recommence le parcours des joueurs !
+                        if (alreadySelected):  # Tous les joueurs proches ont dejà ete selectionnes ! On recommence le parcours des joueurs !
                             self.lastTargetsSelectedRecently = [nearestTargets[0][0]]
                             selectedTarget = nearestTargets[0][0]
                     if(button == 4 and not self.orders_hud.currentTarget=="B"):

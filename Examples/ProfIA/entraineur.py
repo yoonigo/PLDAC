@@ -1,3 +1,4 @@
+import sys
 import random
 from soccersimulator import csvHandler
 from soccersimulator import Vector2D
@@ -265,13 +266,14 @@ class EntraineurDistribueRel(Entraineur):
         self.statesData = None
         self.ordersData = None
         self.currentStateForKNN = None
-        self.nbNeighbors = 1
+        self.nbNeighbors = 3
         self.dist = scipy.spatial.distance.pdist
 
     def setter(self, team, nbPlayer):
         super(EntraineurDistribueRel, self).setter(team,nbPlayer)
-        self.statesData = self.dataToKNNStates(self.csvHandler.newReadStateCsv('../soccersimulator/etats.csv'))
-        self.ordersData = self.csvHandler.readOrderCsv('../soccersimulator/ordres.csv')
+        self.statesData = self.dataToKNNStates(self.csvHandler.import_csv('../soccersimulator/etats.csv', self.csvHandler.rowToREL))
+        #self.ordersData = self.csvHandler.readOrderCsv('../soccersimulator/ordres.csv')
+        self.ordersData = self.csvHandler.encode('../soccersimulator/ordres.csv')
         self.playerOrdersIndex = {}
         for iData in range(len(self.ordersData)):
             for key in self.ordersData[iData].keys():
@@ -284,8 +286,10 @@ class EntraineurDistribueRel(Entraineur):
         #print(self.playerOrdersIndex)
         self.playerKNN = {}
         for key in self.playerOrdersIndex.keys():
+            print(key, self.playerOrdersIndex[key])
             self.playerKNN[key] = KNeighborsClassifier(n_neighbors=self.nbNeighbors)
             self.playerKNN[key].fit(self.statesData[self.playerOrdersIndex[key]],self.playerOrdersIndex[key])
+
 
     def setCurrentState(self, currentState):
         list=[]
@@ -329,11 +333,27 @@ class EntraineurDistribueRel(Entraineur):
         orders = dict()
         for joueur in self.orderStrategies.keys():
             #print("("+str(self.myTeam)+", "+str(joueur)+")")
+            #print(self.playerKNN["("+str(self.myTeam)+", "+str(joueur)+")"].predict(self.currentStateForKNN.reshape(1, -1))[0])
+            #print(self.playerKNN["("+str(self.myTeam)+", "+str(joueur)+")"].predict_proba(self.currentStateForKNN.reshape(1, -1))[0])
+            #sys.exit()
             bestStateIndex = self.playerKNN["("+str(self.myTeam)+", "+str(joueur)+")"].predict(self.currentStateForKNN.reshape(1, -1))[0]
-            closestOrders = self.ordersData[bestStateIndex]
-            #print(bestStateIndex)
-            closestOrder = closestOrders.get("("+str(self.myTeam)+", "+str(joueur)+")", None)
-            #print("closestOrder :",closestOrder)
+            statesProbas = self.playerKNN["("+str(self.myTeam)+", "+str(joueur)+")"].predict_proba(self.currentStateForKNN.reshape(1, -1))[0]
+            indNearestStates=[]
+            for i in range(self.nbNeighbors):
+                index = max(range(len(statesProbas)), key=statesProbas.__getitem__)
+                if statesProbas[index] != 0:
+                    indNearestStates.append(self.playerOrdersIndex["("+str(self.myTeam)+", "+str(joueur)+")"][index])
+                    statesProbas[index] = 0
+            # L'état le plus proche, on le passe en paramètre de decode au cas où on a une égalité entre les cibles/actions
+            nearestOrder = self.ordersData[bestStateIndex].get("("+str(self.myTeam)+", "+str(joueur)+")", None)
+            mixedOrder = self.mixOrders(indNearestStates, joueur)
+            #print("ORDER A ENCODER : ", mixedOrder)
+            closestOrder = self.csvHandler.decode(mixedOrder, nearestOrder)
+            #closestOrders = self.ordersData[bestStateIndex]
+            ##closestOrders = self.csvHandler.decode1NN(self.ordersData[bestStateIndex])
+            ##closestOrder = closestOrders.get("("+str(self.myTeam)+", "+str(joueur)+")", None)
+            #print(closestOrder) --> ['tire vers', 'CageAdverse']
+            #print("ORDRE DECODER: ",closestOrder)
             if closestOrder:
                 if closestOrder[1][0] == "(":
                     closestOrder[1] = self.csvHandler.strToIntTuple(closestOrder[1])
@@ -345,6 +365,14 @@ class EntraineurDistribueRel(Entraineur):
                     closestOrder[-1] = float(closestOrder[-1])
                 orders[joueur] = closestOrder
         return orders
+
+    def mixOrders(self, indStates, joueur):
+        #Simplement une moyenne des valeurs mixees !
+        order = self.ordersData[indStates[0]].get("("+str(self.myTeam)+", "+str(joueur)+")", None).copy()
+        for iInd in range(1,len(indStates)):
+            order += self.ordersData[indStates[iInd]].get("("+str(self.myTeam)+", "+str(joueur)+")", None).copy()
+        order = order/len(indStates)
+        return order
 
     def dataToKNNStates(self,dataStates):#modif
         #print(currentState)
