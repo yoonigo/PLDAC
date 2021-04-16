@@ -270,7 +270,7 @@ class EntraineurDistribueRel(Entraineur):
         self.ordersData = None
         self.currentStateForKNN = None
         self.currentStateOrdonnancement = None
-        self.nbNeighbors = 3
+        self.nbNeighbors = 4
         self.orderByCageDist = orderByCageDist
         self.dist = scipy.spatial.distance.pdist
 

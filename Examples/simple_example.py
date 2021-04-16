@@ -15,7 +15,7 @@ pyteam.add("Manu",FonceurStrategyWithOrder(),"agility")
 
 #team2 = SoccerTeam(name="SubstantialTeam")
 #team2 = SoccerTeam(name="SubstantialTeam", entraineur=EntraineurRandom(["tire vers","se deplace vers","dribble vers"],["Balle","CornerTopLeft","CornerTopRight","CornerBottomLeft","CornerBottomRight","MiddleTop","Middle","MiddleBottom"]))
-team2 = SoccerTeam(name="SubstantialTeam", entraineur=EntraineurSVM())
+team2 = SoccerTeam(name="SubstantialTeam", entraineur=EntraineurDistribueRel(True))
 
 #team2.add("Guillaume",DefenseurStrategy(),"strength")
 #team2.add("Guillaume2",DefenseurStrategy(),"speed")
@@ -29,6 +29,6 @@ team2.add("Guillaume",FonceurStrategyWithOrder(),"agility")
 
 
 #Creation d'une partie
-simu = Simulation(pyteam,team2)
+simu = Simulation(pyteam,team2,getMoreData=False)
 #Jouer et afficher la partie
 show_simu(simu)

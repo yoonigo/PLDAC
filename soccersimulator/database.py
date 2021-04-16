@@ -606,7 +606,53 @@ class csvHandler(object):
         plt.scatter(dataX_embedded[:,0],dataX_embedded[:,1])
         plt.savefig("Dessin")
 
+    def findLowdensityState(self):
+        print("In findLowDensityState")
+        dataX = self.dataToStateNpArray(self.import_csv(CSVFEATURES,self.rowToABS)[1:])
+        indexMaxDist = -1
+        indexMaxMoyDist = -1
+        maxDist = 0
+        moyDist = 0
+        for iData in range(len(dataX)):
+            currentMoyDist = 0
+            for data in dataX:
+                currentDist = np.linalg.norm(dataX[iData]-data)
+                currentMoyDist += currentDist
+                if(currentDist > maxDist):
+                    indexMaxDist = iData
+                    maxDist = currentDist
+            currentMoyDist /= len(dataX)
+            if(currentMoyDist > moyDist):
+                moyDist = currentMoyDist
+                indexMaxMoyDist = iData
+        print(indexMaxDist,indexMaxMoyDist , iData)
+        print(maxDist,moyDist)
+        print(dataX[indexMaxDist])
+        return dataX[indexMaxDist]
 
+    def dataToStateNpArray(self, dataStates):
+        nbValuePerJoueur = 2  # Attention 7 si on rajoute les positions (lignes en commentaires)
+        states = np.zeros((len(dataStates), 4 + nbValuePerJoueur * (sum(self.nbPlayer))))
+        for iState in range(len(dataStates)):
+            currentState = [None for i in range(sum(self.nbPlayer) * nbValuePerJoueur)]
+            state = dataStates[iState]
+            for joueur in state['team1']:
+                finalIndex = joueur["id"][1]
+                # Position du joueur
+                currentState[0 + finalIndex * nbValuePerJoueur] = joueur["position"][0]
+                currentState[1 + finalIndex * nbValuePerJoueur] = joueur["position"][1]
+            nbValueTeam1 = nbValuePerJoueur * self.nbPlayer[0]
+            for joueur in state['team2']:
+                finalIndex = joueur["id"][1]
+                # Position du joueur
+                currentState[nbValueTeam1 + 0 + finalIndex * nbValuePerJoueur] = joueur["position"][0]
+                currentState[nbValueTeam1 + 1 + finalIndex * nbValuePerJoueur] = joueur["position"][1]
+            currentState.append(state["ball"][0][0])
+            currentState.append(state["ball"][0][1])
+            currentState.append(state["ball"][1][0])
+            currentState.append(state["ball"][1][1])
+            states[iState] = currentState
+        return states
 
     def dataToNumpyArray(self, dataStates):
         # print(currentState)

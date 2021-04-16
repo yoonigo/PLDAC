@@ -617,6 +617,8 @@ class SimuGUI(pyglet.window.Window):
         self.update()
     def play(self):
         try:
+            if self._mode_next != self.MANUAL and self.simu.unseenState:
+                self._mode_next = self.MANUAL
             self.simu.start_thread()
         except Exception as e:
             pass
