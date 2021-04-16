@@ -16,7 +16,8 @@ from .guisettings import *
 from .settings import GAME_HEIGHT, GAME_WIDTH
 from .database import csvHandler
 
-#patate = csvHandler()
+#patate = csvHandler(None,[4,4])
+#patate.drawTSNE(patate.rowToREL)
 #patate.duplicateData('../soccersimulator/etats.csv','../soccersimulator/ordres.csv','../soccersimulator/etatsSym.csv','../soccersimulator/ordresSym.csv',True)
 
 FPS = 50.
@@ -229,7 +230,7 @@ class SimuGUI(pyglet.window.Window):
         return res
 
 
-    def getStateForCSVs(self):
+    def getStateForCSVs(self, state = "NoPermut"):
         states = []
         CageTeam1 = Vector2D(0, GAME_HEIGHT / 2)
         CageTeam2 = Vector2D(GAME_WIDTH, GAME_HEIGHT / 2)
@@ -241,8 +242,9 @@ class SimuGUI(pyglet.window.Window):
         typesDef2 = []
         distAdv2 = []
         typesAdv2 = []
+        team1Ordonne = []
+        team2Ordonne = []
         for k, v in self.state.players:
-            states.append(self.getPlayerRelativeState(k, v))
             if k == 1:
                 # Distances entre la cage de l'equipe 1 et les joueurs de l'equipe 1
                 dist = CageTeam1.distance(self.state.player_state(k, v).position)
@@ -254,7 +256,10 @@ class SimuGUI(pyglet.window.Window):
                 type = self.get_team(k).player_type(v)
                 distAdv2.append(dist)
                 typesAdv2.append(type)
-            else:
+                #Pour la version avec permutation
+                currentList = team1Ordonne
+                distToCage = self.state.player_state(k, v).position.distance(CageTeam1)
+            elif k == 2:
                 # Distances entre la cage de l'equipe 1 et les joueurs de l'equipe adverse 2
                 dist = CageTeam1.distance(self.state.player_state(k, v).position)
                 type = self.get_team(k).player_type(v)
@@ -265,7 +270,31 @@ class SimuGUI(pyglet.window.Window):
                 type = self.get_team(k).player_type(v)
                 distDef2.append(dist)
                 typesDef2.append(type)
-
+                #Pour la version avec permutation
+                currentList = team2Ordonne
+                distToCage = self.state.player_state(k, v).position.distance(CageTeam2)
+            if (state == "NoPermut"):
+                states.append(self.getPlayerRelativeState(k, v))
+            else:
+                if len(currentList) == 0:
+                    currentList.append((k,v,distToCage))
+                else:
+                    index = 0
+                    isAfter = True
+                    while index<len(currentList) and isAfter:
+                        if(currentList[index][2]<=distToCage):
+                            index += 1
+                        else:
+                            isAfter = False
+                    if(index == len(currentList)):
+                        currentList.append((k,v,distToCage))
+                    else:
+                        currentList.insert(index,(k,v,distToCage))
+        if(state != "NoPermut"):
+            for joueurProximite in team1Ordonne:
+                states.append(self.getPlayerRelativeState(joueurProximite[0], joueurProximite[1]))
+            for joueurProximite in team2Ordonne:
+                states.append(self.getPlayerRelativeState(joueurProximite[0], joueurProximite[1]))
         # Distance CageTeam1 et defenseur allie le plus proche
         index = min(range(len(distDef1)), key=distDef1.__getitem__)
         distDefC1 = distDef1[index]
@@ -300,111 +329,6 @@ class SimuGUI(pyglet.window.Window):
         states.append(self.state.ballControl)
         return states
 
-    @DeprecationWarning
-    def OLDgetStateForCSVs(self):
-        if self.absolu: #sauvegarder les donnees dans un repère absolu
-            posBall = self.state.ball.position
-            ballNextLikelyPosition = self.state.ball.nextLikelyPosition
-            ballTeam = self.state.ballControl
-            players = {}
-            players[1] = {}
-            players[2] = {}
-            for k, v in self.state.players:
-                players[k][v] = (self.state.player_state(k, v).position, self.get_team(k).player_type(v))
-            team1pos = ''
-            team2pos = ''
-            team1type = ''
-            team2type = ''
-            for k in players:
-                if k == 1:
-                    for p in players[k]:
-                        if team1pos == '':
-                            team1pos += str(players[k][p][0])
-                        else:
-                            team1pos += '/' + str(players[k][p][0])
-                        if team1type == '':
-                            team1type += players[k][p][1]
-                        else:
-                            team1type += '/' + players[k][p][1]
-                else:
-                    for p in players[k]:
-                        if team2pos == '':
-                            team2pos += str(players[k][p][0])
-                        else:
-                            team2pos += '/' + str(players[k][p][0])
-                        if team2type == '':
-                            team2type += players[k][p][1]
-                        else:
-                            team2type += '/' + players[k][p][1]
-
-            return [posBall, ballNextLikelyPosition, team1pos, team1type, team2pos, team2type, ballTeam]
-        else: #sauvegarder les donnees relatives à chaque joueur
-            states = []
-            CageTeam1 = Vector2D(0, GAME_HEIGHT/2)
-            CageTeam2 = Vector2D(GAME_WIDTH, GAME_HEIGHT/2)
-            distDef1=[]
-            typesDef1=[]
-            distAdv1=[]
-            typesAdv1=[]
-            distDef2=[]
-            typesDef2=[]
-            distAdv2=[]
-            typesAdv2=[]
-            for k, v in self.state.players:
-                states.append(self.getPlayerRelativeState(k,v))
-                if k == 1:
-                    # Distances entre la cage de l'equipe 1 et les joueurs de l'equipe 1
-                    dist = CageTeam1.distance(self.state.player_state(k,v).position)
-                    type = self.get_team(k).player_type(v)
-                    distDef1.append(dist)
-                    typesDef1.append(type)
-                    # Distances entre la cage de l'equipe 2 et les joueurs de l'equipe adverse 1
-                    dist = CageTeam2.distance(self.state.player_state(k,v).position)
-                    type = self.get_team(k).player_type(v)
-                    distAdv2.append(dist)
-                    typesAdv2.append(type)
-                else:
-                    # Distances entre la cage de l'equipe 1 et les joueurs de l'equipe adverse 2
-                    dist = CageTeam1.distance(self.state.player_state(k,v).position)
-                    type = self.get_team(k).player_type(v)
-                    distAdv1.append(dist)
-                    typesAdv1.append(type)
-                    # Distances entre la cage de l'equipe 2 et les joueurs de l'equipe 2
-                    dist = CageTeam2.distance(self.state.player_state(k,v).position)
-                    type = self.get_team(k).player_type(v)
-                    distDef2.append(dist)
-                    typesDef2.append(type)
-
-            # Distance CageTeam1 et defenseur allie le plus proche
-            index = min(range(len(distDef1)), key=distDef1.__getitem__)
-            distDefC1 = distDef1[index]
-            typeDefC1 = typesDef1[index]
-            states.append(distDefC1)
-            states.append(typeDefC1)
-            # Distance CageTeam1 et attaquant adverse le plus proche
-            index = min(range(len(distAdv1)), key=distAdv1.__getitem__)
-            distAdvC1 = distAdv1[index]
-            typeAdvC1 = typesAdv1[index]
-            states.append(distAdvC1)
-            states.append(typeAdvC1)
-            # Distance entre la balle et la cage de l'equipe 1
-            states.append(CageTeam1.distance(self.state.ball.position))
-            # Distance CageTeam2 et defenseur allie le plus proche
-            index = min(range(len(distDef2)), key=distDef2.__getitem__)
-            distDefC2 = distDef2[index]
-            typeDefC2 = typesDef2[index]
-            states.append(distDefC2)
-            states.append(typeDefC2)
-            # Distance CageTeam2 et attaquant adverse le plus proche
-            index = min(range(len(distAdv2)), key=distAdv2.__getitem__)
-            distAdvC2 = distAdv2[index]
-            typeAdvC2 = typesAdv2[index]
-            states.append(distAdvC2)
-            states.append(typeAdvC2)
-            # Distance entre la balle et la cage de l'equipe 2
-            states.append(CageTeam2.distance(self.state.ball.position))
-            return states
-
     def on_mouse_press(self,x,y,button,modifiers):
         lengthWindow, heightWindow = self.get_size() #Taille de l'interface en pixel
         x_n, y_n = (x * (settings.GAME_WIDTH + ORDERS_HUD_WIDTH) / lengthWindow, y * (settings.GAME_HEIGHT + HUD_HEIGHT) / heightWindow)
@@ -414,7 +338,7 @@ class SimuGUI(pyglet.window.Window):
                 self.doOrder()
                 ### ecrire les donnees de l'etat (matrice X)
                 if(self.simu.shouldSaveData):
-                    self.csvHandler.addDataToCSVs([self.selectedPlayer[0]]+ self.selectedPlayer[1], self.getStateForCSVs(), self.absolu)
+                    self.csvHandler.addDataToCSVs([self.selectedPlayer[0]]+ self.selectedPlayer[1], self.getStateForCSVs("Permut"), self.absolu)
             elif(x_n >= settings.GAME_WIDTH + 37 and x_n <= settings.GAME_WIDTH + 53) and ((y_n >= settings.GAME_HEIGHT - 57) and (y_n <= settings.GAME_HEIGHT - 50.5)):
                 #self.selectedPlayer[1] = None
                 team = self.get_team(self.selectedPlayer[0][0])

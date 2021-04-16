@@ -315,7 +315,7 @@ class SoccerState(object):
         self.goal = idx
 
     @classmethod
-    def create_initial_state(cls, nb_players_1=0, nb_players_2=0, team = 1, max_steps=settings.MAX_GAME_STEPS):
+    def create_initial_state(cls, nb_players_1=0, nb_players_2=0, team = 1):
         """ Creer un etat initial avec le nombre de joueurs indique
         :param nb_players_1: nombre de joueur de la team 1
         :param nb_players_2: nombre de joueur de la teamp 2
@@ -535,8 +535,8 @@ class Simulation(object):
             self.team2.entraineur.setter(2,[len(self.team1.players),len(self.team2.players)])
         self.shouldSaveData = shouldSaveData
         #######################################################
-        self.initial_state = initial_state or  SoccerState.create_initial_state(self.team1.nb_players,self.team2.nb_players,max_steps)
-        self.initial_state2 = SoccerState.create_initial_state(self.team1.nb_players,self.team2.nb_players,2,max_steps)
+        self.initial_state = initial_state or  SoccerState.create_initial_state(self.team1.nb_players,self.team2.nb_players)
+        self.initial_state2 = SoccerState.create_initial_state(self.team1.nb_players,self.team2.nb_players,2)
         self.state = self.initial_state.copy()
         Simulation.ETAT = self.state.copy()
         self.max_steps = max_steps

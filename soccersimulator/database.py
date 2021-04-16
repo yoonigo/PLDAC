@@ -4,10 +4,12 @@ import numpy as np
 from .settings import GAME_WIDTH
 from .utils import Vector2D
 from .databaseSettings import *
+from sklearn.manifold import TSNE
+import matplotlib.pyplot as plt
 
 class csvHandler(object):
 
-    def __init__(self, myTeam, nbPlayer):
+    def __init__(self, myTeam = None, nbPlayer = None):
         self.lastStateSaved = None
         self.myTeam = myTeam
         self.nbPlayer = nbPlayer
@@ -149,7 +151,7 @@ class csvHandler(object):
         newState["joueursTeam1"] = team1
         # Joueur de l'equipe 1
         team1 = []
-        for i in range(nbJoueurTot - nbJoueurTeam0):
+        for i in range(nbJoueurTeam0,nbJoueurTot):
             id = self.strToIntTuple(state[i][1:7])
             pos = state[i][9:].split(")")
             joueur = pos[1].split(",")
@@ -593,3 +595,66 @@ class csvHandler(object):
         tupl = self.strToFloatTuple(string)
         symTuple = self.getSymetricPosition(tupl)
         return self.floatTupleToStr(symTuple)
+
+    def drawTSNE(self,readFunction = None):
+        dataX = self.dataToNumpyArray(self.import_csv(CSVFEATURES,readFunction)[1:])
+        print(type(dataX))
+        print(len(dataX))
+        print(dataX[0])
+        dataX_embedded = TSNE(n_components=2, perplexity=40, verbose=2).fit_transform(dataX)
+        print(dataX_embedded)
+        plt.scatter(dataX_embedded[:,0],dataX_embedded[:,1])
+        plt.savefig("Dessin")
+
+
+
+    def dataToNumpyArray(self, dataStates):
+        # print(currentState)
+        # shape 0 : nombre de lignes dans le csv etats
+        # shape 1 : nombre de donnees
+        # => format du csv
+        nbValuePerJoueur = 7  # Attention 7 si on rajoute les positions (lignes en commentaires)
+        states = np.zeros((len(dataStates), 6 + nbValuePerJoueur * (sum(self.nbPlayer))))
+        for iState in range(len(dataStates)):
+            currentState = [None for i in range(sum(self.nbPlayer) * nbValuePerJoueur)]
+            state = dataStates[iState]
+            indiceJoueur = 0
+            for joueur in state['joueursTeam1']:
+                finalIndex = joueur["id"][1]
+                # Position du joueur
+                currentState[0 + finalIndex * nbValuePerJoueur] = joueur["position"][0]
+                currentState[1 + finalIndex * nbValuePerJoueur] = joueur["position"][1]
+                # Distance à l'allie le plus proche
+                currentState[2 + finalIndex * nbValuePerJoueur] = joueur['distAllieLPP']
+                # Distance à l'adversaire le plus proche
+                currentState[3 + finalIndex * nbValuePerJoueur] = joueur['distAdvLPP']
+                # Distance à la Balle
+                currentState[4 + finalIndex * nbValuePerJoueur] = joueur['distBall']
+                # Distance à la cage de son equipe
+                currentState[5 + finalIndex * nbValuePerJoueur] = joueur['distSaCage']
+                # Distance à la cage adversaire
+                currentState[6 + finalIndex * nbValuePerJoueur] = joueur['distCageAdv']
+                indiceJoueur += 1
+            indiceJoueur = 0
+            nbValueTeam1 = nbValuePerJoueur * self.nbPlayer[0]
+            for joueur in state['joueursTeam2']:
+                finalIndex = joueur["id"][1]
+                # Position du joueur
+                currentState[nbValueTeam1 + 0 + finalIndex * nbValuePerJoueur] = joueur["position"][0]
+                currentState[nbValueTeam1 + 1 + finalIndex * nbValuePerJoueur] = joueur["position"][1]
+                currentState[nbValueTeam1 + 2 + finalIndex * nbValuePerJoueur] = joueur['distAllieLPP']
+                currentState[nbValueTeam1 + 3 + finalIndex * nbValuePerJoueur] = joueur['distAdvLPP']
+                currentState[nbValueTeam1 + 4 + finalIndex * nbValuePerJoueur] = joueur['distBall']
+                currentState[nbValueTeam1 + 5 + finalIndex * nbValuePerJoueur] = joueur['distSaCage']
+                currentState[nbValueTeam1 + 6 + finalIndex * nbValuePerJoueur] = joueur['distCageAdv']
+                indiceJoueur += 1
+            equipe = state['positionsTeam1']
+            currentState.append(equipe['distAdvLPPCage'])
+            currentState.append(equipe['distDefLPPCage'])
+            currentState.append(equipe['distBallCage'])
+            equipe = state['positionsTeam2']
+            currentState.append(equipe['distAdvLPPCage'])
+            currentState.append(equipe['distDefLPPCage'])
+            currentState.append(equipe['distBallCage'])
+            states[iState] = currentState
+        return states
