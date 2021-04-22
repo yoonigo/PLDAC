@@ -48,7 +48,7 @@ class FonceurTestStrategy(Strategy):
             return self.strength
         return None 
 
-####Stratégies 2021######################################################################################################################################
+####Strategies 2021######################################################################################################################################
 
 class FonceurStrategyWithOrder(Strategy):
     def __init__(self):
@@ -60,6 +60,7 @@ class FonceurStrategyWithOrder(Strategy):
         I = ComportementNew(SuperState(state, id_team, id_player))
         if(self.orderList):
             action = self.executeOrder(I,self.orderList[0],Simulation.ETAT.states)
+            #print(id_team,id_player,action, self.orderList[0])
             if(action[1] == True):
                 self.orderList.pop(0)
                 if(self.orderList):
@@ -101,7 +102,7 @@ class FonceurStrategyWithOrder(Strategy):
             cibleA = getCible(order[1])
             cibleB = getCible(order[2])
             cible = cibleA.mixage(cibleB, order[3])
-        if (order[0] == "se déplace vers"):
+        if (order[0] == "se deplace vers"):
             actionMustStop = I.proximiteAtteinte(cible)
             return (I.allerVers(cible), actionMustStop)
         elif (order[0] == "tire vers"):
@@ -117,9 +118,9 @@ class FonceurStrategyWithOrder(Strategy):
     def addOrder(self,order):
         self.resetOrders()
         if (order[0] == "tire vers"):
-            self.orderList.append(["se déplace vers", "Balle"])
+            self.orderList.append(["se deplace vers", "Balle"])
         if (order[0] == "dribble vers"):
-            self.orderList.append(["se déplace vers","Balle"])
+            self.orderList.append(["se deplace vers","Balle"])
             orderTmp = order.copy()
             orderTmp[0] = "tire versL"
             self.orderList.append(orderTmp)

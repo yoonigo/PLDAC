@@ -32,7 +32,7 @@ def dl_from_github(groupe, path):
     try:
         initdir = os.path.abspath(os.path.dirname(sorted(glob.glob(tmp_path+"/**/__init__.py",recursive=True),key=lambda x:len(x))[0]))
     except Exception:
-           logger.info("Pas de __init__.py trouvé pour %s %s" % (groupe.login,groupe.projet))
+           logger.info("Pas de __init__.py trouve pour %s %s" % (groupe.login,groupe.projet))
            return
     if initdir != tmp_path:
         logger.info("__init__.py pas a la racine, mv %s -- %s" % (initdir,tmp_path))

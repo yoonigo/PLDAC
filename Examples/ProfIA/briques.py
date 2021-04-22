@@ -58,7 +58,7 @@ def defenseur(I):
         return I.degage()+I.run(I.ball_p)
     return I.go((I.ball_p-I.my_goal).normalize()*I.width*0.1+I.my_goal)
 
-####Stratégies 2021######################################################################################################################################
+####Strategies 2021######################################################################################################################################
 class ComportementNew(Comportement):
     RUN_COEF = maxPlayerAcceleration
     SHOOT_COEF = maxPlayerShoot

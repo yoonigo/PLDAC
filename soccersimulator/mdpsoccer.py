@@ -13,6 +13,8 @@ import time
 import zipfile
 import traceback
 import logging
+from .database import csvHandler
+import numpy as np
 
 logger = logging.getLogger("soccersimulator.mdpsoccer")
 ###############################################################################
@@ -83,7 +85,7 @@ class Ball(MobileMixin):
 
     @property
     def nextLikelyPosition(self):
-        ## prédit la position du ballon apres une passe ou un tir vers le goal pour permettre une interception
+        ## predit la position du ballon apres une passe ou un tir vers le goal pour permettre une interception
         currentVitesse = self.vitesse.copy()
         currentPos = self.position.copy() + currentVitesse
         while currentVitesse.norm > 0.1:
@@ -207,7 +209,7 @@ class SoccerState(object):
         self.goal = kwargs.pop('goal', 0)
         self.__dict__.update(kwargs)
         ###############################################
-        self.ballControl = 1 #l'équipe qui shoot le ballon à l'instant même
+        self.ballControl = 1 #l'equipe qui shoot le ballon à l'instant même
 
 
     def __str__(self):
@@ -315,7 +317,7 @@ class SoccerState(object):
         self.goal = idx
 
     @classmethod
-    def create_initial_state(cls, nb_players_1=0, nb_players_2=0, team = 1, max_steps=settings.MAX_GAME_STEPS):
+    def create_initial_state(cls, nb_players_1=0, nb_players_2=0, team = 1):
         """ Creer un etat initial avec le nombre de joueurs indique
         :param nb_players_1: nombre de joueur de la team 1
         :param nb_players_2: nombre de joueur de la teamp 2
@@ -323,6 +325,29 @@ class SoccerState(object):
         """
         state = cls()
         state.reset_state(nb_players_1=nb_players_1,nb_players_2= nb_players_2, team = team)
+        return state
+
+    @classmethod
+    def create_unseenState(cls, nb_players_1=0,nb_players_2=0):
+        state = cls()
+        dataHandler = csvHandler(1,[nb_players_1,nb_players_2])
+        dataLowDensity = dataHandler.findLowdensityState()
+        randomData = np.random.random_sample(len(dataLowDensity)) * np.tile(np.array([150,90]),int(len(dataLowDensity)/2))
+        dataLowDensity = dataLowDensity*0.99+randomData*0.01
+        if((nb_players_1 + nb_players_2)*2 != len(dataLowDensity) - 4):
+            raise AttributeError
+        if nb_players_1 == 4:
+            state.states[1, 0] = PlayerState(position=Vector2D(dataLowDensity[0], dataLowDensity[1]))
+            state.states[1, 1] = PlayerState(position=Vector2D(dataLowDensity[2], dataLowDensity[3]))
+            state.states[1, 2] = PlayerState(position=Vector2D(dataLowDensity[4], dataLowDensity[4]))
+            state.states[1, 3] = PlayerState(position=Vector2D(dataLowDensity[6], dataLowDensity[5]))
+        if nb_players_2 == 4:
+            state.states[2, 0] = PlayerState(position=Vector2D(dataLowDensity[8], dataLowDensity[7]))
+            state.states[2, 1] = PlayerState(position=Vector2D(dataLowDensity[10], dataLowDensity[9]))
+            state.states[2, 2] = PlayerState(position=Vector2D(dataLowDensity[12], dataLowDensity[11]))
+            state.states[2, 3] = PlayerState(position=Vector2D(dataLowDensity[14], dataLowDensity[13]))
+        state.ball = Ball(Vector2D(dataLowDensity[-4],dataLowDensity[-3]),Vector2D())
+        state.goal = 0
         return state
 
     def reset_state(self, nb_players_1=0, nb_players_2=0, team = 1):
@@ -525,8 +550,7 @@ class SoccerTeam(object):
 
 class Simulation(object):
     ETAT = None
-
-    def __init__(self,team1=None,team2=None, shouldSaveData = True, max_steps = settings.MAX_GAME_STEPS,initial_state=None,**kwargs):
+    def __init__(self,team1=None,team2=None, shouldSaveData = True, max_steps = settings.MAX_GAME_STEPS,initial_state=None,getMoreData = None,**kwargs):
         self.team1, self.team2 = team1 or SoccerTeam(),team2 or SoccerTeam()
         #######################################################
         if(hasattr(self.team1.entraineur, 'setter')):
@@ -535,8 +559,12 @@ class Simulation(object):
             self.team2.entraineur.setter(2,[len(self.team1.players),len(self.team2.players)])
         self.shouldSaveData = shouldSaveData
         #######################################################
-        self.initial_state = initial_state or  SoccerState.create_initial_state(self.team1.nb_players,self.team2.nb_players,max_steps)
-        self.initial_state2 = SoccerState.create_initial_state(self.team1.nb_players,self.team2.nb_players,2,max_steps)
+        self.initial_state = initial_state or  SoccerState.create_initial_state(self.team1.nb_players,self.team2.nb_players)
+        self.initial_state2 = SoccerState.create_initial_state(self.team1.nb_players,self.team2.nb_players,2)
+        if(getMoreData):
+            self.unseenState = SoccerState.create_unseenState(self.team1.nb_players,self.team2.nb_players)
+        else:
+            self.unseenState = None
         self.state = self.initial_state.copy()
         Simulation.ETAT = self.state.copy()
         self.max_steps = max_steps
@@ -572,6 +600,8 @@ class Simulation(object):
     def to_dict(self):
         return dict(team1=self.team1,team2=self.team2,state=self.state,max_steps=self.max_steps,states=self.states,initial_state=self.initial_state)
     def get_initial_state(self, team = 1):
+        if(self.unseenState):
+            return self.unseenState
         if(team == 2):
             return self.initial_state2.copy()
         return self.initial_state.copy()

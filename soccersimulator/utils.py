@@ -181,7 +181,7 @@ class Vector2D(object):
         return self
 
     def norm_max(self, n):
-        """ Normalise le vecteur a la norme n si supérieur
+        """ Normalise le vecteur a la norme n si superieur
         :param n:
         :return: vecteur normalise
         """
@@ -297,7 +297,7 @@ class Vector2D(object):
         return [self.x,self.y]
 
 class MobileMixin(object):
-    """ Mixin pour représenter un objet mobile. Dispose d'un vecteur position et d'un vecteur vitesse.
+    """ Mixin pour representer un objet mobile. Dispose d'un vecteur position et d'un vecteur vitesse.
     """
     def __init__(self, position=None, vitesse=None, *args, **kwargs):
         """
