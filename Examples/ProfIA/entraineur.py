@@ -680,7 +680,7 @@ class EntraineurSVM(Entraineur):
         # Distance entre la balle et la cage de l'equipe 2
         list.append(CageTeam2.distance(currentState.ball.position))
         self.currentStateForSVM = np.array(list)
-        
+
     def thinkOrders(self):
         if(len(self.statesData)==0):
             return dict()
@@ -773,6 +773,7 @@ class EntraineurSVM(Entraineur):
             # Distance à la cage adverse
             CageAdverse = Vector2D(0, GAME_HEIGHT/2)
             distCageAdverse = playerPosition.distance(CageAdverse)
+
         # Distances à l'allie le plus proche et à l'adversaire le plus proche + leurs types
         allieDist=[]
         #allieType=[]
@@ -794,6 +795,7 @@ class EntraineurSVM(Entraineur):
                 #type = self.get_team(k).player_type(v)
                 advDist.append(distance)
                 #advType.append(type)
+
         # distance à l'allie le plus proche + type
         index = min(range(len(allieDist)), key=allieDist.__getitem__)
         APP = allieDist[index]

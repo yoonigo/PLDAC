@@ -21,3 +21,6 @@ PREC=4
 joueurAgile = {"agility" : 1.2, "speed" : 1.0, "strength" : 0.83}
 joueurRapide = {"agility" : 1.0, "speed" : 1.2, "strength" : 0.7}
 joueurFort = {"agility" : 0.9, "speed" : 0.9, "strength" : 1.}
+
+#Mutation ou Interpolation
+shouldDoMutation = False

@@ -190,11 +190,13 @@ class SimuGUI(pyglet.window.Window):
             # Distance à la cage adverse
             CageAdverse = Vector2D(0, GAME_HEIGHT/2)
             distCageAdverse = playerPosition.distance(CageAdverse)
+
         # Distances à l'allie le plus proche et à l'adversaire le plus proche + leurs types
         allieDist=[]
         allieType=[]
         advDist=[]
         advType=[]
+
         for k, v in self.state.players:
             if k == team and id == v:
                 continue
