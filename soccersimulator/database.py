@@ -60,7 +60,8 @@ class csvHandler(object):
                         else:
                             list = []
                             for ordre in lastRow:
-                                list.append((ordre))
+                                if(int(ordre[2]) != order[0][0] or int(ordre[5]) != order[0][1]):
+                                    list.append((ordre))
                             list.append(order)
                             writer.writerow(list)
                     else:
@@ -228,6 +229,7 @@ class csvHandler(object):
                 ordersDico[liste[0]] = liste[1:]
             result.append(ordersDico)
         return result
+
 
     def newReadStateCsv(self,stateFilePath):
         stateData = self.import_csv(stateFilePath)[1:]
@@ -443,7 +445,6 @@ class csvHandler(object):
         return ordre
 
     @DeprecationWarning
-
     def duplicateData(self,stateFilePath,orderFilePath, outputStatePath, outputOrderPath, addOnlySymetric = False):
         """
         DEPRECATED
@@ -606,29 +607,118 @@ class csvHandler(object):
         plt.scatter(dataX_embedded[:,0],dataX_embedded[:,1])
         plt.savefig("Dessin")
 
-    def findLowdensityState(self):
-        print("In findLowDensityState")
+    def findLowdensityState(self, nbState = 1,offset = 2):
+        #print("In findLowDensityState")
         dataX = self.dataToStateNpArray(self.import_csv(CSVFEATURES,self.rowToABS)[1:])
-        indexMaxDist = -1
-        indexMaxMoyDist = -1
-        maxDist = 0
-        moyDist = 0
+        indexMaxMinDists = [-1 for i in range(nbState+offset)]
+        indexMoyDists = [-1 for i in range(nbState+offset)]
+        maxMinDists = [-1 for i in range(nbState+offset)]
+        moyDists = [0 for i in range(nbState+offset)]
         for iData in range(len(dataX)):
             currentMoyDist = 0
+            currentMinDist = -1
             for data in dataX:
+                #Calcul des distances
                 currentDist = np.linalg.norm(dataX[iData]-data)
+                #Calcul iteratif de la moyenne
                 currentMoyDist += currentDist
-                if(currentDist > maxDist):
-                    indexMaxDist = iData
-                    maxDist = currentDist
-            currentMoyDist /= len(dataX)
-            if(currentMoyDist > moyDist):
-                moyDist = currentMoyDist
-                indexMaxMoyDist = iData
-        print(indexMaxDist,indexMaxMoyDist , iData)
-        print(maxDist,moyDist)
-        print(dataX[indexMaxDist])
-        return dataX[indexMaxDist]
+                #Calcul de la distance minimale
+                if(currentDist != 0):
+                    if(currentMinDist == -1):
+                        currentMinDist = currentDist
+                    else:
+                        if(currentDist < currentMinDist):
+                            currentMinDist = currentDist
+            #Calcul du max des distances minimales !
+            iMaxMinDist = 0
+            haveUpdatedMaxMin = False
+            while (iMaxMinDist<len(maxMinDists) and not haveUpdatedMaxMin):
+                if(currentMinDist > maxMinDists[iMaxMinDist]):
+                    for index in range(len(maxMinDists)-2,iMaxMinDist-1,-1):
+                        indexMaxMinDists[index+1] = indexMaxMinDists[index]
+                        maxMinDists[index+1] = maxMinDists[index]
+                    indexMaxMinDists[iMaxMinDist] = iData
+                    maxMinDists[iMaxMinDist] = currentMinDist
+                    haveUpdatedMaxMin = True
+                iMaxMinDist += 1
+            #Calcul du max des moyenne des distances
+            currentMoyDist /= len(dataX)-1
+            iMoyDist = 0
+            haveUpdatedMoy = False
+            while (iMoyDist < len(moyDists) and not haveUpdatedMoy):
+                if (currentMoyDist > moyDists[iMoyDist]):
+                    for index in range(len(moyDists) - 2, iMoyDist - 1, -1):
+                        indexMoyDists[index + 1] = indexMoyDists[index]
+                        moyDists[index + 1] = moyDists[index]
+                    indexMoyDists[iMoyDist] = iData
+                    moyDists[iMoyDist] = currentMoyDist
+                    haveUpdatedMoy = True
+                iMoyDist += 1
+        #print(indexMaxMinDists, indexMoyDists, iData)
+        #print(maxMinDists,moyDists)
+        #Comptage des valeurs rencontrées en fonction de leur ordre.
+        allIndexValuate = {}
+        for iValue in range(len(indexMaxMinDists)):
+            oldValue = allIndexValuate.get(indexMaxMinDists[iValue],0)
+            allIndexValuate[indexMaxMinDists[iValue]] = oldValue + (-iValue+nbState+offset)
+            oldValue = allIndexValuate.get(indexMoyDists[iValue],0)
+            allIndexValuate[indexMoyDists[iValue]] = oldValue + (-iValue+nbState+offset)
+        #print(allIndexValuate)
+        #Tri des index en fonction de leur valeur de comptage
+        sortedIndexValuate = []
+        for key in allIndexValuate.keys():
+            if(not sortedIndexValuate):
+                sortedIndexValuate.append((key,allIndexValuate[key]))
+            else:
+                currentSortedindex = 0
+                isAdded = False
+                while(currentSortedindex < len(sortedIndexValuate) and not isAdded):
+                    if(sortedIndexValuate[currentSortedindex][1] > allIndexValuate[key]):
+                        currentSortedindex+=1
+                    else:
+                        sortedIndexValuate.insert(currentSortedindex,(key,allIndexValuate[key]))
+                        isAdded = True
+                if(not isAdded):
+                    sortedIndexValuate.append((key,allIndexValuate[key]))
+        #print(sortedIndexValuate)
+        #Selection des nbState index voulu
+        wantedIndex = []
+        valueComptage = sortedIndexValuate[0][1]
+        currentIndex = 0
+        while len(wantedIndex) != nbState: #Choix parmi ceux qui on la valeur de comptage la plus elevee
+            possibleIndex = [sortedIndexValuate[currentIndex][0]]
+            currentIndex+=1
+            while valueComptage == sortedIndexValuate[currentIndex][1]:
+                currentIndex+=1
+                possibleIndex.append(sortedIndexValuate[currentIndex][0])
+            if(len(possibleIndex)+len(wantedIndex) > nbState): #Si on a trop de choix possible : choix aleatoire !
+                nbIndexManquant = nbState - len(wantedIndex)
+                for i in range(nbIndexManquant):
+                    randomIndex = np.random.randint(len(possibleIndex))
+                    wantedIndex.append(possibleIndex[randomIndex])
+                    possibleIndex.pop(randomIndex)
+            else:
+                #Ajout de tous les indexs possibles courants
+                for index in possibleIndex:
+                    wantedIndex.append(index)
+        return dataX[wantedIndex]
+
+    def evaluateDensity(self,state):
+        #Retourne la distance minimale a un autre etat ainsi que la moyenne des distances
+        dataX = self.dataToStateNpArray(self.import_csv(CSVFEATURES, self.rowToABS)[1:])
+        minDist = -1
+        moyDist = 0
+        for data in dataX:
+            currentDist = np.linalg.norm(state - data)
+            if(minDist == -1):
+                minDist = currentDist
+            moyDist += currentDist
+            if(currentDist<minDist):
+                minDist=currentDist
+        moyDist /= len(dataX)
+        return(minDist,moyDist)
+
+
 
     def dataToStateNpArray(self, dataStates):
         nbValuePerJoueur = 2  # Attention 7 si on rajoute les positions (lignes en commentaires)

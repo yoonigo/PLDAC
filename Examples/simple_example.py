@@ -29,6 +29,6 @@ team2.add("Guillaume",FonceurStrategyWithOrder(),"agility")
 
 
 #Creation d'une partie
-simu = Simulation(pyteam,team2,getMoreData=False)
+simu = Simulation(pyteam,team2,getMoreData=True)
 #Jouer et afficher la partie
 show_simu(simu)

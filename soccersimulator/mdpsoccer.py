@@ -328,12 +328,12 @@ class SoccerState(object):
         return state
 
     @classmethod
-    def create_unseenState(cls, nb_players_1=0,nb_players_2=0):
+    def createMutatedState(cls, nb_players_1=0,nb_players_2=0, mutationValue = 0.01):
         state = cls()
         dataHandler = csvHandler(1,[nb_players_1,nb_players_2])
-        dataLowDensity = dataHandler.findLowdensityState()
+        dataLowDensity = dataHandler.findLowdensityState(nbState=1)[0]
         randomData = np.random.random_sample(len(dataLowDensity)) * np.tile(np.array([150,90]),int(len(dataLowDensity)/2))
-        dataLowDensity = dataLowDensity*0.99+randomData*0.01
+        dataLowDensity = dataLowDensity*(1-mutationValue)+randomData*mutationValue
         if((nb_players_1 + nb_players_2)*2 != len(dataLowDensity) - 4):
             raise AttributeError
         if nb_players_1 == 4:
@@ -347,6 +347,41 @@ class SoccerState(object):
             state.states[2, 2] = PlayerState(position=Vector2D(dataLowDensity[12], dataLowDensity[11]))
             state.states[2, 3] = PlayerState(position=Vector2D(dataLowDensity[14], dataLowDensity[13]))
         state.ball = Ball(Vector2D(dataLowDensity[-4],dataLowDensity[-3]),Vector2D())
+        state.goal = 0
+        return state
+
+    @classmethod
+    def createInterpolateState(cls, nb_players_1=0,nb_players_2=0):
+        state = cls()
+        dataHandler = csvHandler(1, [nb_players_1, nb_players_2])
+        dataLowDensity = dataHandler.findLowdensityState(nbState=2)
+        #Parcours des possibles interpolations et selection de la meilleure
+        bestInterpolationValue = -1
+        bestEvaluation = 0
+        for interpolationValue in range(1,10):
+            currentInterpolationValue = interpolationValue/10
+            #print(currentInterpolationValue, " : ", end="")
+            currentDataLowDensity = dataLowDensity[0] * currentInterpolationValue + dataLowDensity[1] * (1-currentInterpolationValue)
+            currentEvaluation = dataHandler.evaluateDensity(currentDataLowDensity)
+            #print(currentEvaluation[0],currentEvaluation[1])
+            if(currentEvaluation[0]+currentEvaluation[1] > bestEvaluation):
+                bestInterpolationValue = currentInterpolationValue
+                bestEvaluation = currentEvaluation[0]+currentEvaluation[1]
+        #print("Result : ", bestInterpolationValue, bestEvaluation)
+        dataLowDensity = dataLowDensity[0] * bestInterpolationValue + dataLowDensity[1] * (1-bestInterpolationValue)
+        if ((nb_players_1 + nb_players_2) * 2 != len(dataLowDensity) - 4):
+            raise AttributeError
+        if nb_players_1 == 4:
+            state.states[1, 0] = PlayerState(position=Vector2D(dataLowDensity[0], dataLowDensity[1]))
+            state.states[1, 1] = PlayerState(position=Vector2D(dataLowDensity[2], dataLowDensity[3]))
+            state.states[1, 2] = PlayerState(position=Vector2D(dataLowDensity[4], dataLowDensity[4]))
+            state.states[1, 3] = PlayerState(position=Vector2D(dataLowDensity[6], dataLowDensity[5]))
+        if nb_players_2 == 4:
+            state.states[2, 0] = PlayerState(position=Vector2D(dataLowDensity[8], dataLowDensity[7]))
+            state.states[2, 1] = PlayerState(position=Vector2D(dataLowDensity[10], dataLowDensity[9]))
+            state.states[2, 2] = PlayerState(position=Vector2D(dataLowDensity[12], dataLowDensity[11]))
+            state.states[2, 3] = PlayerState(position=Vector2D(dataLowDensity[14], dataLowDensity[13]))
+        state.ball = Ball(Vector2D(dataLowDensity[-4], dataLowDensity[-3]), Vector2D())
         state.goal = 0
         return state
 
@@ -550,6 +585,7 @@ class SoccerTeam(object):
 
 class Simulation(object):
     ETAT = None
+
     def __init__(self,team1=None,team2=None, shouldSaveData = True, max_steps = settings.MAX_GAME_STEPS,initial_state=None,getMoreData = None,**kwargs):
         self.team1, self.team2 = team1 or SoccerTeam(),team2 or SoccerTeam()
         #######################################################
@@ -562,7 +598,10 @@ class Simulation(object):
         self.initial_state = initial_state or  SoccerState.create_initial_state(self.team1.nb_players,self.team2.nb_players)
         self.initial_state2 = SoccerState.create_initial_state(self.team1.nb_players,self.team2.nb_players,2)
         if(getMoreData):
-            self.unseenState = SoccerState.create_unseenState(self.team1.nb_players,self.team2.nb_players)
+            if(settings.shouldDoMutation):
+                self.unseenState = SoccerState.createMutatedState(self.team1.nb_players,self.team2.nb_players)
+            else:
+                self.unseenState = SoccerState.createInterpolateState(self.team1.nb_players,self.team2.nb_players)
         else:
             self.unseenState = None
         self.state = self.initial_state.copy()
