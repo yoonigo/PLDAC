@@ -66,7 +66,7 @@ class FonceurStrategyWithOrder(Strategy):
                 if(self.orderList):
                     action = self.executeOrder(I, self.orderList[0], Simulation.ETAT.states)
             return action[0]
-        return None
+        #return None
         return fonceurNew(I)
 
     def executeOrder(self, I, order, state):

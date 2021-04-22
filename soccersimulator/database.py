@@ -229,7 +229,6 @@ class csvHandler(object):
             result.append(ordersDico)
         return result
 
-
     def newReadStateCsv(self,stateFilePath):
         stateData = self.import_csv(stateFilePath)[1:]
         result = []
@@ -444,6 +443,7 @@ class csvHandler(object):
         return ordre
 
     @DeprecationWarning
+
     def duplicateData(self,stateFilePath,orderFilePath, outputStatePath, outputOrderPath, addOnlySymetric = False):
         """
         DEPRECATED

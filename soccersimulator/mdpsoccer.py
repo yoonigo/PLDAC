@@ -550,7 +550,6 @@ class SoccerTeam(object):
 
 class Simulation(object):
     ETAT = None
-
     def __init__(self,team1=None,team2=None, shouldSaveData = True, max_steps = settings.MAX_GAME_STEPS,initial_state=None,getMoreData = None,**kwargs):
         self.team1, self.team2 = team1 or SoccerTeam(),team2 or SoccerTeam()
         #######################################################
