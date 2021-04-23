@@ -636,31 +636,38 @@ class EntraineurSVM(Entraineur):
         #self.statesData = self.dataToSVMStates(self.csvHandler.import_csv('../soccersimulator/etats.csv', self.csvHandler.rowToREL))
         statesData = self.dataToSVMStates(self.csvHandler.import_csv('../soccersimulator/etats.csv', self.csvHandler.rowToREL))
         self.statesData = statesData[0]
-        #print(self.statesData)
         self.statesOrdonnancement = statesData[1]
-        #print(self.statesOrdonnancement)
         self.ordersData = self.csvHandler.encode('../soccersimulator/ordres.csv')
         self.playerOrdersIndex = {}
+        self.playerOrdersEncoding = {}
 
         if self.orderByCageDist:
             for iData in range(len(self.ordersData)):
-                for key in self.ordersData[iData].keys():
-                    if (int(key[1]) == team):
-                        liste = self.playerOrdersIndex.get(self.statesOrdonnancement[iData][key], None)
+                idPlayers = self.ordersData[iData].keys()
+                for id in idPlayers: # team + num
+                    if (int(id[1]) == team):
+                        position = self.statesOrdonnancement[iData][id]
+                        liste = self.playerOrdersIndex.get(position, None)
+                        listeEncode = self.playerOrdersEncoding.get(position, None)
                         if (liste):
                             liste.append(iData)
                         else:
-                            self.playerOrdersIndex[self.statesOrdonnancement[iData][key]] = [iData]
+                            self.playerOrdersIndex[position] = [iData]
+                        if (not listeEncode is None):
+                            self.playerOrdersEncoding[position] = np.concatenate((listeEncode, self.ordersData[iData][id]), axis=0)
+                        else:
+                            self.playerOrdersEncoding[position] = np.array(self.ordersData[iData][id])
+
             self.positionSVR = {}
             self.positionSVM = {}
-            for idJoueur in self.playerOrdersIndex.keys():
-                self.positionSVR[idJoueur] = MultiOutputRegressor(SVR(kernel = 'rbf'))
-                self.positionSVM[idJoueur] = SVC(kernel = 'rbf', probability = True)
-                etats = self.statesData[self.playerOrdersIndex[idJoueur]]
-                ordres = np.array([self.ordersData[ind].get(idJoueur) for ind in self.playerOrdersIndex[idJoueur]])
-                print(ordres)
-                self.positionSVR[idJoueur].fit(etats,ordres)
-                self.positionSVM[idJoueur].fit(etats,self.playerOrdersIndex[idJoueur],sample_weight=None)
+            for key in self.playerOrdersIndex.keys():
+                self.positionSVR[key] = MultiOutputRegressor(SVR(kernel='rbf'))
+                self.positionSVM[key] = SVC(kernel='rbf', probability=True)
+                etats = self.statesData[self.playerOrdersIndex[key]]
+                ordresIndices = self.playerOrdersIndex[key]
+                ordresEncoding = self.playerOrdersEncoding[key].reshape((int(self.playerOrdersEncoding[key].shape[0] / 23), 23))
+                self.positionSVR[key].fit(etats, ordresEncoding)
+                self.positionSVM[key].fit(etats, ordresIndices, sample_weight=None)
         else:
             for iData in range(len(self.ordersData)):
                 for key in self.ordersData[iData].keys():
@@ -771,7 +778,7 @@ class EntraineurSVM(Entraineur):
                     #print(joueurID, bestStateOrdreID)
 
                 # Pour SVR
-                bestOrder = self.positionSVR[joueurID].predict(self.currentStateForSVM.reshape(1, -1))[0]
+                bestOrder = self.positionSVR[positionALaCage].predict(self.currentStateForSVM.reshape(1, -1))[0]
                 #print("bestOrder : ", bestOrder)
                 closestOrder = self.csvHandler.decode(bestOrder, SVMOrder)
                 #print("closestOrder : ", closestOrder)
