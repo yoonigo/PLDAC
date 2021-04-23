@@ -4,6 +4,8 @@ from soccersimulator import csvHandler
 from soccersimulator import Vector2D
 from sklearn.neighbors import KNeighborsClassifier
 from sklearn.svm import SVC
+from sklearn.svm import SVR
+from sklearn.multioutput import MultiOutputRegressor
 from sklearn.neighbors import DistanceMetric
 import numpy as np
 from itertools import permutations
@@ -88,7 +90,7 @@ class EntraineurKNN(Entraineur):
         listeElem = currentState.ball.position.toList()+currentState.ball.nextLikelyPosition.toList()
         for k, p in sorted(currentState.states.items()):
             listeElem+=p.position.toList()
-            #print(k,p) ##TODO for combinatoire
+            #print(k,p) #TODO for combinatoire
         self.currentStateForKNN = np.array(listeElem)
 
     def thinkOrders(self):
@@ -191,7 +193,7 @@ class EntraineurKNN(Entraineur):
     def distanceEuclidienne(self,Vec1,Vec2):
         return Vector2D(Vec1[0],Vec1[1]).distance(Vector2D(Vec2[0],Vec2[1]))
 
-######################################################################################################
+###################################################
 
 class EntraineurDistribueAbs(Entraineur):
     def __init__(self):
@@ -211,7 +213,7 @@ class EntraineurDistribueAbs(Entraineur):
         listeElem = currentState.ball.position.toList()+currentState.ball.nextLikelyPosition.toList()
         for k, p in sorted(currentState.states.items()):
             listeElem+=p.position.toList()
-            #print(k,p) ##TODO for combinatoire
+            #print(k,p) #TODO for combinatoire
         self.currentStateForKNN = np.array(listeElem)
 
     def thinkOrders(self):
@@ -260,7 +262,7 @@ class EntraineurDistribueAbs(Entraineur):
     def distanceEuclidienne(self,Vec1,Vec2):
         return Vector2D(Vec1[0],Vec1[1]).distance(Vector2D(Vec2[0],Vec2[1]))
 
-#########################################################################################
+#############################################
 
 class EntraineurDistribueRel(Entraineur):
     def __init__(self, orderByCageDist = False):
@@ -418,12 +420,15 @@ class EntraineurDistribueRel(Entraineur):
                 mixedOrder = self.mixOrders(indNearestStates, bestStateOrdreID, positionALaCage)
             else:
                 nearestOrder = self.ordersData[bestStateIndex].get(joueurID, None)
+                #print("nearestOrder :", nearestOrder)
                 mixedOrder = self.mixOrders(indNearestStates, joueurID)
+                #print("mixedOrder :", mixedOrder)
             #print("ORDER A ENCODER : ", mixedOrder)
             closestOrder = self.csvHandler.decode(mixedOrder, nearestOrder)
+            #print("closestOrder :",closestOrder)
             #closestOrders = self.ordersData[bestStateIndex]
-            ##closestOrders = self.csvHandler.decode1NN(self.ordersData[bestStateIndex])
-            ##closestOrder = closestOrders.get("("+str(self.myTeam)+", "+str(joueur)+")", None)
+            #closestOrders = self.csvHandler.decode1NN(self.ordersData[bestStateIndex])
+            #closestOrder = closestOrders.get("("+str(self.myTeam)+", "+str(joueur)+")", None)
             #print(closestOrder) --> ['tire vers', 'CageAdverse']
             #print("ORDRE DECODER: ",closestOrder)
             if closestOrder:
@@ -449,7 +454,7 @@ class EntraineurDistribueRel(Entraineur):
         if self.orderByCageDist:
             if(joueurID == "(1, 0)"):
                 pass
-                #print("###############################################################################################")
+                #print("################################################")
                 #print("PositionToFollow : ", self.positionToCageToOrderID(positionToCage, indStates[0], self.myTeam))
                 #print(self.ordersData[indStates[0]].get(self.positionToCageToOrderID(positionToCage, indStates[0], self.myTeam), None).copy())
             #print("Identifiant : ", self.positionToCageToOrderID(positionToCage,indStates[0],self.myTeam))
@@ -613,7 +618,7 @@ class EntraineurDistribueRel(Entraineur):
         res = [APP, AdvPP, dist2Ball, distCage, distCageAdverse]
         return res
 
-#########################################################################################
+#############################################
 
 class EntraineurSVM(Entraineur):
     def __init__(self, orderByCageDist = False):
@@ -634,7 +639,7 @@ class EntraineurSVM(Entraineur):
         #print(self.statesData)
         self.statesOrdonnancement = statesData[1]
         #print(self.statesOrdonnancement)
-        self.ordersData = self.csvHandler.readOrderCsv('../soccersimulator/ordres.csv')
+        self.ordersData = self.csvHandler.encode('../soccersimulator/ordres.csv')
         self.playerOrdersIndex = {}
 
         if self.orderByCageDist:
@@ -646,12 +651,16 @@ class EntraineurSVM(Entraineur):
                             liste.append(iData)
                         else:
                             self.playerOrdersIndex[self.statesOrdonnancement[iData][key]] = [iData]
+            self.positionSVR = {}
             self.positionSVM = {}
             for idJoueur in self.playerOrdersIndex.keys():
+                self.positionSVR[idJoueur] = MultiOutputRegressor(SVR(kernel = 'rbf'))
                 self.positionSVM[idJoueur] = SVC(kernel = 'rbf', probability = True)
                 etats = self.statesData[self.playerOrdersIndex[idJoueur]]
-                ordres = self.playerOrdersIndex[idJoueur]
-                self.positionSVM[idJoueur].fit(etats,ordres,sample_weight=None)
+                ordres = np.array([self.ordersData[ind].get(idJoueur) for ind in self.playerOrdersIndex[idJoueur]])
+                print(ordres)
+                self.positionSVR[idJoueur].fit(etats,ordres)
+                self.positionSVM[idJoueur].fit(etats,self.playerOrdersIndex[idJoueur],sample_weight=None)
         else:
             for iData in range(len(self.ordersData)):
                 for key in self.ordersData[iData].keys():
@@ -661,16 +670,15 @@ class EntraineurSVM(Entraineur):
                             liste.append(iData)
                         else:
                             self.playerOrdersIndex[key] = [iData]
-            #print(self.playerOrdersIndex)
+            self.playerSVR = {}
             self.playerSVM = {}
             for idJoueur in self.playerOrdersIndex.keys():
+                self.playerSVR[idJoueur] = MultiOutputRegressor(SVR(kernel = 'rbf'))
                 self.playerSVM[idJoueur] = SVC(kernel = 'rbf', probability = True)
                 etats = self.statesData[self.playerOrdersIndex[idJoueur]]
-                ordres = self.playerOrdersIndex[idJoueur]
-                #print(etats.shape)
-                self.playerSVM[idJoueur].fit(etats, ordres, sample_weight=None)
-
-
+                ordres = np.array([self.ordersData[ind].get(idJoueur) for ind in self.playerOrdersIndex[idJoueur]])
+                self.playerSVR[idJoueur].fit(etats, ordres)
+                self.playerSVM[idJoueur].fit(etats, self.playerOrdersIndex[idJoueur], sample_weight=None)
 
     def setCurrentState(self, currentState):
         list=[]
@@ -745,35 +753,39 @@ class EntraineurSVM(Entraineur):
             positionALaCage = None
             joueurID = "(" + str(self.myTeam) + ", " + str(joueur) + ")"
             bestStateOrdreID = None
-            #bestStateIndex = self.playerSVM[joueurID].predict(self.currentStateForSVM.reshape(1, -1))[0]
-            #print(bestStateIndex)
-            #closestOrders = self.ordersData[bestStateIndex]
-            #closestOrder = closestOrders.get(joueurID, None)
-            #print("JOUEUR :", joueurID)
-            #print("ORDRE DECODER: ",closestOrder)
-            ############ Permutations
+            ###### Permutations
             if self.orderByCageDist:
                 #On calcule avant tout la position a la cage du joueur dans l'etat courrant
                 positionALaCage = self.currentStateOrdonnancement[joueurID]
                 #L'état le plus proche
                 bestStateIndex = self.positionSVM[positionALaCage].predict(self.currentStateForSVM.reshape(1, -1))[0]
+                #print(bestStateIndex)
                 #L'identifiant de l'ordre associe a l'etat le plus proche en fonction de la position a la cage
                 bestStateOrdreID = self.positionToCageToOrderID(positionALaCage,bestStateIndex,self.myTeam)
+                SVMOrder = self.ordersData[bestStateIndex].get(bestStateOrdreID, None)
 
-                closestOrders = self.ordersData[bestStateIndex]
-                #print("Closest orders :", closestOrders)
-                closestOrder = closestOrders.get(bestStateOrdreID,None)
                 #print("Closest order :", closestOrder)
                 if (joueur == 0 and self.myTeam == 2):
                     pass
                     #print("Position à la cage : ", positionALaCage)
                     #print(joueurID, bestStateOrdreID)
+
+                # Pour SVR
+                bestOrder = self.positionSVR[joueurID].predict(self.currentStateForSVM.reshape(1, -1))[0]
+                #print("bestOrder : ", bestOrder)
+                closestOrder = self.csvHandler.decode(bestOrder, SVMOrder)
+                #print("closestOrder : ", closestOrder)
+
             else:
+                # Pour SVM
                 bestStateIndex = self.playerSVM[joueurID].predict(self.currentStateForSVM.reshape(1, -1))[0]
-                closestOrders = self.ordersData[bestStateIndex]
-                #print("Closest orders :", closestOrders)
-                closestOrder = closestOrders.get(joueurID, None)
-                #print("Closest order :", closestOrder)
+                SVMOrder = self.ordersData[bestStateIndex].get(joueurID, None)
+                #print("SVMOrder : ", SVMOrder)
+                # Pour SVR
+                bestOrder = self.playerSVR[joueurID].predict(self.currentStateForSVM.reshape(1, -1))[0]
+                #print("bestOrder : ", bestOrder)
+                closestOrder = self.csvHandler.decode(bestOrder, SVMOrder)
+                #print("closestOrder : ", closestOrder)
 
             if closestOrder:
                 if (self.orderByCageDist):
