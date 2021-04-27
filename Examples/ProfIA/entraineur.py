@@ -272,7 +272,7 @@ class EntraineurDistribueRel(Entraineur):
         self.ordersData = None
         self.currentStateForKNN = None
         self.currentStateOrdonnancement = None
-        self.nbNeighbors = 4
+        self.nbNeighbors = 8
         self.orderByCageDist = orderByCageDist
         self.dist = scipy.spatial.distance.pdist
 
@@ -658,16 +658,45 @@ class EntraineurSVM(Entraineur):
                         else:
                             self.playerOrdersEncoding[position] = np.array(self.ordersData[iData][id])
 
-            self.positionSVR = {}
-            self.positionSVM = {}
-            for key in self.playerOrdersIndex.keys():
-                self.positionSVR[key] = MultiOutputRegressor(SVR(kernel='rbf'))
-                self.positionSVM[key] = SVC(kernel='rbf', probability=True)
-                etats = self.statesData[self.playerOrdersIndex[key]]
-                ordresIndices = self.playerOrdersIndex[key]
-                ordresEncoding = self.playerOrdersEncoding[key].reshape((int(self.playerOrdersEncoding[key].shape[0] / 23), 23))
-                self.positionSVR[key].fit(etats, ordresEncoding)
-                self.positionSVM[key].fit(etats, ordresIndices, sample_weight=None)
+            self.positionSVR_deplace = {}
+            self.positionSVR_tire = {}
+            self.positionSVR_dribble = {}
+            self.positionSVC = {}
+            for idJoueur in self.playerOrdersIndex.keys():
+                self.positionSVR_deplace[idJoueur] = MultiOutputRegressor(SVR(kernel='rbf'))
+                self.positionSVR_dribble[idJoueur] = MultiOutputRegressor(SVR(kernel='rbf'))
+                self.positionSVR_tire[idJoueur] = MultiOutputRegressor(SVR(kernel='rbf'))
+                self.positionSVC[idJoueur] = SVC(kernel='rbf', probability=True)
+
+                #etats_deplace = np.array([self.statesData[ind] for ind in self.playerOrdersIndex[idJoueur] if self.ordersData[ind].get(idJoueur)[0]==1])
+                #etats_tire = np.array([self.statesData[ind] for ind in self.playerOrdersIndex[idJoueur] if self.ordersData[ind].get(idJoueur)[1]==1])
+                #etats_dribble = np.array([self.statesData[ind] for ind in self.playerOrdersIndex[idJoueur] if self.ordersData[ind].get(idJoueur)[2]==1])
+
+                #cibles_deplace = np.array([self.ordersData[ind].get(idJoueur)[3:] for ind in self.playerOrdersIndex[idJoueur] if self.ordersData[ind].get(idJoueur)[0]==1])
+
+                etats = self.statesData[self.playerOrdersIndex[idJoueur]]
+                ordresIndices = self.playerOrdersIndex[idJoueur]
+                ordresEncoding = self.playerOrdersEncoding[idJoueur].reshape((int(self.playerOrdersEncoding[idJoueur].shape[0] / 23), 23))
+
+                etats_deplace = np.array([self.statesData[ordresIndices[i]] for i in range(len(ordresIndices)) if ordresEncoding[i][0]==1])
+                etats_tire = np.array([self.statesData[ordresIndices[i]] for i in range(len(ordresIndices)) if ordresEncoding[i][1]==1])
+                etats_dribble = np.array([self.statesData[ordresIndices[i]] for i in range(len(ordresIndices)) if ordresEncoding[i][2]==1])
+
+                cibles_deplace = np.array([ord[3:] for ord in ordresEncoding if ord[0] == 1])
+                cibles_tire = np.array([ord[3:] for ord in ordresEncoding if ord[1] == 1])
+                cibles_dribble = np.array([ord[3:] for ord in ordresEncoding if ord[2] == 1])
+
+                #print(etats_deplace.shape, cibles_deplace.shape)
+                #print(etats_tire.shape, cibles_tire.shape)
+                #print(etats_dribble.shape, cibles_dribble.shape)
+
+                if etats_deplace.shape[0] != 0:
+                    self.positionSVR_deplace[idJoueur].fit(etats_deplace, cibles_deplace)
+                if etats_tire.shape[0] != 0:
+                    self.positionSVR_tire[idJoueur].fit(etats_tire, cibles_tire)
+                if etats_dribble.shape[0] != 0:
+                    self.positionSVR_dribble[idJoueur].fit(etats_dribble, cibles_dribble)
+                self.positionSVC[idJoueur].fit(etats, ordresIndices, sample_weight=None)
         else:
             for iData in range(len(self.ordersData)):
                 for key in self.ordersData[iData].keys():
@@ -677,15 +706,37 @@ class EntraineurSVM(Entraineur):
                             liste.append(iData)
                         else:
                             self.playerOrdersIndex[key] = [iData]
-            self.playerSVR = {}
-            self.playerSVM = {}
+
+            self.playerSVC = {}
+            self.playerSVR_tire = {}
+            self.playerSVR_deplace = {}
+            self.playerSVR_dribble = {}
             for idJoueur in self.playerOrdersIndex.keys():
-                self.playerSVR[idJoueur] = MultiOutputRegressor(SVR(kernel = 'rbf'))
-                self.playerSVM[idJoueur] = SVC(kernel = 'rbf', probability = True)
                 etats = self.statesData[self.playerOrdersIndex[idJoueur]]
                 ordres = np.array([self.ordersData[ind].get(idJoueur) for ind in self.playerOrdersIndex[idJoueur]])
-                self.playerSVR[idJoueur].fit(etats, ordres)
-                self.playerSVM[idJoueur].fit(etats, self.playerOrdersIndex[idJoueur], sample_weight=None)
+                #### Pour les actions
+                self.playerSVC[idJoueur] = SVC(kernel = 'rbf', probability = True)
+                #actions = np.array([self.ordersData[ind].get(idJoueur)[:3] for ind in self.playerOrdersIndex[idJoueur]])
+                self.playerSVC[idJoueur].fit(etats, self.playerOrdersIndex[idJoueur])
+                #### Pour les cibles
+                self.playerSVR_tire[idJoueur] = MultiOutputRegressor(SVR(kernel = 'rbf'))
+                self.playerSVR_deplace[idJoueur] = MultiOutputRegressor(SVR(kernel = 'rbf'))
+                self.playerSVR_dribble[idJoueur] = MultiOutputRegressor(SVR(kernel = 'rbf'))
+
+                etats_deplace = np.array([self.statesData[ind] for ind in self.playerOrdersIndex[idJoueur] if self.ordersData[ind].get(idJoueur)[0]==1])
+                cibles_deplace = np.array([self.ordersData[ind].get(idJoueur)[3:] for ind in self.playerOrdersIndex[idJoueur] if self.ordersData[ind].get(idJoueur)[0]==1])
+                etats_tire = np.array([self.statesData[ind] for ind in self.playerOrdersIndex[idJoueur] if self.ordersData[ind].get(idJoueur)[1]==1])
+                cibles_tire = np.array([self.ordersData[ind].get(idJoueur)[3:] for ind in self.playerOrdersIndex[idJoueur] if self.ordersData[ind].get(idJoueur)[1]==1])
+                etats_dribble = np.array([self.statesData[ind] for ind in self.playerOrdersIndex[idJoueur] if self.ordersData[ind].get(idJoueur)[2]==1])
+                cibles_dribble = np.array([self.ordersData[ind].get(idJoueur)[3:] for ind in self.playerOrdersIndex[idJoueur] if self.ordersData[ind].get(idJoueur)[2]==1])
+
+                if etats_deplace.shape[0] != 0:
+                    self.playerSVR_deplace[idJoueur].fit(etats_deplace, cibles_deplace)
+                if etats_tire.shape[0] != 0:
+                    self.playerSVR_tire[idJoueur].fit(etats_tire, cibles_tire)
+                if etats_dribble.shape[0] != 0:
+                    self.playerSVR_dribble[idJoueur].fit(etats_dribble, cibles_dribble)
+
 
     def setCurrentState(self, currentState):
         list=[]
@@ -765,33 +816,48 @@ class EntraineurSVM(Entraineur):
                 #On calcule avant tout la position a la cage du joueur dans l'etat courrant
                 positionALaCage = self.currentStateOrdonnancement[joueurID]
                 #L'état le plus proche
-                bestStateIndex = self.positionSVM[positionALaCage].predict(self.currentStateForSVM.reshape(1, -1))[0]
+                bestStateIndex = self.positionSVC[positionALaCage].predict(self.currentStateForSVM.reshape(1, -1))[0]
                 #print(bestStateIndex)
                 #L'identifiant de l'ordre associe a l'etat le plus proche en fonction de la position a la cage
                 bestStateOrdreID = self.positionToCageToOrderID(positionALaCage,bestStateIndex,self.myTeam)
-                SVMOrder = self.ordersData[bestStateIndex].get(bestStateOrdreID, None)
+                actions = self.ordersData[bestStateIndex].get(bestStateOrdreID, None)[:3]
+
+                if actions[0] == 1: #deplace
+                    cibles = self.positionSVR_deplace[positionALaCage].predict(self.currentStateForSVM.reshape(1, -1))[0]
+                if actions[1] == 1: #tire
+                    cibles = self.positionSVR_tire[positionALaCage].predict(self.currentStateForSVM.reshape(1, -1))[0]
+                if actions[2] == 1: #dribble
+                    cibles = self.positionSVR_dribble[positionALaCage].predict(self.currentStateForSVM.reshape(1, -1))[0]
+
+                ordre = np.concatenate((actions,cibles))
+                closestOrder = self.csvHandler.decode(ordre, ordre)
 
                 #print("Closest order :", closestOrder)
-                if (joueur == 0 and self.myTeam == 2):
-                    pass
+                #if (joueur == 0 and self.myTeam == 2):
+                #    pass
                     #print("Position à la cage : ", positionALaCage)
                     #print(joueurID, bestStateOrdreID)
 
                 # Pour SVR
-                bestOrder = self.positionSVR[positionALaCage].predict(self.currentStateForSVM.reshape(1, -1))[0]
+                #bestOrder = self.positionSVR[positionALaCage].predict(self.currentStateForSVM.reshape(1, -1))[0]
                 #print("bestOrder : ", bestOrder)
-                closestOrder = self.csvHandler.decode(bestOrder, SVMOrder)
+                #closestOrder = self.csvHandler.decode(bestOrder, SVMOrder)
                 #print("closestOrder : ", closestOrder)
 
             else:
-                # Pour SVM
-                bestStateIndex = self.playerSVM[joueurID].predict(self.currentStateForSVM.reshape(1, -1))[0]
-                SVMOrder = self.ordersData[bestStateIndex].get(joueurID, None)
-                #print("SVMOrder : ", SVMOrder)
-                # Pour SVR
-                bestOrder = self.playerSVR[joueurID].predict(self.currentStateForSVM.reshape(1, -1))[0]
-                #print("bestOrder : ", bestOrder)
-                closestOrder = self.csvHandler.decode(bestOrder, SVMOrder)
+                # Prédire l'action
+                bestStateIndex = self.playerSVC[joueurID].predict(self.currentStateForSVM.reshape(1, -1))[0]
+                actions = self.ordersData[bestStateIndex].get(joueurID, None)[:3]
+                # Prédire la/les cible(s)
+                if actions[0] == 1: #deplace
+                    cibles = self.playerSVR_deplace[joueurID].predict(self.currentStateForSVM.reshape(1, -1))[0]
+                if actions[1] == 1: #tire
+                    cibles = self.playerSVR_tire[joueurID].predict(self.currentStateForSVM.reshape(1, -1))[0]
+                if actions[2] == 1: #dribble
+                    cibles = self.playerSVR_dribble[joueurID].predict(self.currentStateForSVM.reshape(1, -1))[0]
+
+                ordre = np.concatenate((actions,cibles))
+                closestOrder = self.csvHandler.decode(ordre, ordre)
                 #print("closestOrder : ", closestOrder)
 
             if closestOrder:
