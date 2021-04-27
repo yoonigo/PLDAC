@@ -586,7 +586,7 @@ class SoccerTeam(object):
 class Simulation(object):
     ETAT = None
 
-    def __init__(self,team1=None,team2=None, shouldSaveData = True, max_steps = settings.MAX_GAME_STEPS,initial_state=None,getMoreData = None,**kwargs):
+    def __init__(self,team1=None,team2=None, shouldSaveData = True, max_steps = settings.MAX_GAME_STEPS,initial_state=None,getMoreData = False, isPlayable = False,**kwargs):
         self.team1, self.team2 = team1 or SoccerTeam(),team2 or SoccerTeam()
         #######################################################
         if(hasattr(self.team1.entraineur, 'setter')):
@@ -594,7 +594,6 @@ class Simulation(object):
         if (hasattr(self.team2.entraineur, 'setter')):
             self.team2.entraineur.setter(2,[len(self.team1.players),len(self.team2.players)])
         self.shouldSaveData = shouldSaveData
-        #######################################################
         self.initial_state = initial_state or  SoccerState.create_initial_state(self.team1.nb_players,self.team2.nb_players)
         self.initial_state2 = SoccerState.create_initial_state(self.team1.nb_players,self.team2.nb_players,2)
         if(getMoreData):
@@ -604,6 +603,9 @@ class Simulation(object):
                 self.unseenState = SoccerState.createInterpolateState(self.team1.nb_players,self.team2.nb_players)
         else:
             self.unseenState = None
+        self.isPlayable = isPlayable
+        self.ignoredPlayer = None
+        #######################################################
         self.state = self.initial_state.copy()
         Simulation.ETAT = self.state.copy()
         self.max_steps = max_steps
@@ -705,6 +707,14 @@ class Simulation(object):
             return self.team1
         if idx == 2:
             return self.team2
+    def setIgnoredPlayer(self, ignoredPlayer):
+        self.ignoredPlayer = ignoredPlayer
+        if(ignoredPlayer[0] == 1):
+            self.team1.entraineur.ignoredPlayer = ignoredPlayer[1]
+            self.team2.entraineur.ignoredPlayer = None
+        else:
+            self.team2.entraineur.ignoredPlayer = ignoredPlayer[1]
+            self.team1.entraineur.ignoredPlayer = None
     def stop(self):
         return self._kill or self.state.step >= self.max_steps or (self.replay and self.step+1>=len(self.states))
     def update_round(self):

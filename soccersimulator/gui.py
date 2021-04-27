@@ -15,10 +15,11 @@ import logging
 from .guisettings import *
 from .settings import GAME_HEIGHT, GAME_WIDTH
 from .database import csvHandler
+import numpy as np
 
-#patate = csvHandler(None,[4,4])
+patate = csvHandler(None,[4,4])
 #patate.drawTSNE(patate.rowToREL)
-#patate.duplicateData('../soccersimulator/etats.csv','../soccersimulator/ordres.csv','../soccersimulator/etatsSym.csv','../soccersimulator/ordresSym.csv',True)
+#patate.combineCsv('../ordresAdded.csv','../ordresAdded - Copie.csv','../ordresAddedFusion.csv')
 
 FPS = 50.
 FPS_MOD = 5.
@@ -69,11 +70,9 @@ class SimuGUI(pyglet.window.Window):
         self.lastPlayersSelectedRecently = []  # TEMPORAIRE IL FAUT DECIDER D'OU LE METTRE
         self.selectedPlayer = [(1, 0), None]
         self.lastTargetsSelectedRecently = []  # TEMPORAIRE IL FAUT DECIDER D'OU LE METTRE
-        self.selectedTarget = "SaCage"
-        self.selectedTarget2 = "SaCage"
-        self.enregistrer = True
+        self.selectedTarget = "CageAdverse"
+        self.selectedTarget2 = "CageAdverse"
         self.lastStateSaved = None
-        self.absolu = False
         ###################################################################################
         ###
         pyglet.clock.schedule_interval(self.update, 1. / 25)
@@ -129,13 +128,21 @@ class SimuGUI(pyglet.window.Window):
     def resetOrderGUI(self):
         self.lastPlayersSelectedRecently = []  # TEMPORAIRE IL FAUT DECIDER D'OU LE METTRE
         self.selectedPlayer = [(1, 0), None]
+        if(self.simu.isPlayable):
+            equipe = self.csvHandler.getEquipe()
+            if (equipe == 0):
+                nbJoueur = self.simu.team1.nb_players
+            else:
+                nbJoueur = self.simu.team2.nb_players
+            self.selectedPlayer = [(equipe + 1, np.random.randint(nbJoueur)), None]
+            self.simu.setIgnoredPlayer(self.selectedPlayer[0])
         self.lastTargetsSelectedRecently = []  # TEMPORAIRE IL FAUT DECIDER D'OU LE METTRE
-        self.selectedTarget = "SaCage"
-        self.selectedTarget2 = "SaCage"
+        self.selectedTarget = "CageAdverse"
+        self.selectedTarget2 = "CageAdverse"
 
     def orderToString(self, order):
         if(order == None):
-            return "Fonceur"
+            return "Aucun"
         if(len(order)>2):
             action = ""
             actionTmp = order[0].split(" ")
@@ -150,7 +157,7 @@ class SimuGUI(pyglet.window.Window):
                 cible2 = self.playerToName(order[2])
             else:
                 cible2 = order[2]
-            return action + cible1 + " et " + cible2
+            return [action + cible1 + " et " + cible2, order[3]]
         else:
             action = order[0] + " "
             if (type(order[1]) == tuple):
@@ -329,22 +336,111 @@ class SimuGUI(pyglet.window.Window):
         states.append(self.state.ballControl)
         return states
 
+    def findNearestTargets(self,x_n,y_n):
+        nearestTargets = []  # Liste des cibles proches de la souris
+        for k, v in self.state.players:
+            newValue = self.state.player_state(k, v).position.distance(Vector2D(x_n, y_n))
+            if (
+                    newValue <= DISTANCEMAXALASOURIS):  # Si le joueur depasse la distance maximale fixee, on ne le considère pas
+                if (not nearestTargets):  # Si la liste est vide, le premier joueur est le plus proche
+                    nearestTargets.append([(k, v), newValue])
+                else:  # La liste sera ordonnee et completee incrementalement (indice 0 = le plus proche)
+                    index = 0
+                    isNearest = False
+                    while (index < len(nearestTargets) and not isNearest):
+                        if (newValue < nearestTargets[index][1]):
+                            isNearest = True
+                            nearestTargets.insert(index, [(k, v), newValue])
+                        else:
+                            index += 1
+                    if (not isNearest):
+                        nearestTargets.append([(k, v), newValue])
+        otherTargets = [("Balle", self.state.ball.position.distance(Vector2D(x_n, y_n)))]
+        otherTargets.append(("BalleProchaine", self.state.ball.position.distance(Vector2D(x_n, y_n))))
+        otherTargets.append(("CornerTopLeft", Vector2D(0, GAME_HEIGHT).distance(Vector2D(x_n, y_n))))
+        otherTargets.append(("CornerTopRight", Vector2D(GAME_WIDTH, GAME_HEIGHT).distance(Vector2D(x_n, y_n))))
+        otherTargets.append(("CornerBottomLeft", Vector2D(0, 0).distance(Vector2D(x_n, y_n))))
+        otherTargets.append(("CornerBottomRight", Vector2D(GAME_WIDTH, 0).distance(Vector2D(x_n, y_n))))
+        otherTargets.append(("MiddleTop", Vector2D(GAME_WIDTH / 2, GAME_HEIGHT).distance(Vector2D(x_n, y_n))))
+        otherTargets.append(("MiddleBottom", Vector2D(GAME_WIDTH / 2, 0).distance(Vector2D(x_n, y_n))))
+        otherTargets.append(("Middle", Vector2D(GAME_WIDTH / 2, GAME_HEIGHT / 2).distance(Vector2D(x_n, y_n))))
+        if (self.selectedPlayer[0][0] == 1):
+            otherTargets.append(("SaCage", Vector2D(0, GAME_HEIGHT / 2).distance(Vector2D(x_n, y_n))))
+            otherTargets.append(("CageAdverse", Vector2D(GAME_WIDTH, GAME_HEIGHT / 2).distance(Vector2D(x_n, y_n))))
+        else:
+            otherTargets.append(("SaCage", Vector2D(GAME_WIDTH, GAME_HEIGHT / 2).distance(Vector2D(x_n, y_n))))
+            otherTargets.append(("CageAdverse", Vector2D(0, GAME_HEIGHT / 2).distance(Vector2D(x_n, y_n))))
+
+        for target in otherTargets:
+            if (target[1] <= DISTANCEMAXALASOURIS):  # Si la cible depasse la distance maximale fixee, on ne la considère pas
+                if (not nearestTargets):  # Si la liste est vide, la premiere cible est la plus proche
+                    nearestTargets.append([target[0], target[1]])
+                else:  # La liste sera ordonnee et completee incrementalement (indice 0 = le plus proche)
+                    index = 0
+                    isNearest = False
+                    while (index < len(nearestTargets) and not isNearest):
+                        if (target[1] < nearestTargets[index][1]):
+                            isNearest = True
+                            nearestTargets.insert(index, [target[0], target[1]])
+                        else:
+                            index += 1
+                    if (not isNearest):
+                        nearestTargets.append([target[0], target[1]])
+        return nearestTargets
+
+    def selectNearestTarget(self,nearestTargets,button):
+        if (nearestTargets):  # Si au moins une cible est suffisament proche
+            if (len(nearestTargets) == 1):  # S'il n'y a qu'un joueur proche
+                self.lastTargetsSelectedRecently = []  # Plus besoin de garder en memoire les joueurs
+                selectedTarget = nearestTargets[0][0]
+            else:
+                alreadySelected = True
+                index = 0
+                while alreadySelected and index < len(
+                        nearestTargets):  # Sinon on parcours tous les joueurs, on choisit le premier qu'on a jamais vu
+                    joueur = nearestTargets[index][0]
+                    if (joueur in self.lastTargetsSelectedRecently):
+                        index += 1
+                    else:
+                        self.lastTargetsSelectedRecently.append(
+                            joueur)  # On selectionne ce joueur et on considère qu'il a dejà ete vu
+                        selectedTarget = joueur
+                        alreadySelected = False
+                if (
+                alreadySelected):  # Tous les joueurs proches ont dejà ete selectionnes ! On recommence le parcours des joueurs !
+                    self.lastTargetsSelectedRecently = [nearestTargets[0][0]]
+                    selectedTarget = nearestTargets[0][0]
+            if(not self.simu.isPlayable):
+                if ((button == 4 or button == 1) and not self.orders_hud.currentTarget == "B"):
+                    self.selectedTarget = selectedTarget
+                elif (button == 2 or (button == 4 and self.orders_hud.currentTarget == "B")):
+                    self.selectedTarget2 = selectedTarget
+            else:
+                if(button == 1 or (button == 4 and self.orders_hud.targetingType == 0)):
+                    self.selectedTarget = selectedTarget
+                elif(button == 4 and self.orders_hud.targetingType == 1):
+                    self.selectedTarget2 = selectedTarget
+
+
+    def findAndSelectNearestTarget(self,x_n,y_n,button):
+        self.selectNearestTarget(self.findNearestTargets(x_n,y_n),button)
+
     def on_mouse_press(self,x,y,button,modifiers):
         lengthWindow, heightWindow = self.get_size() #Taille de l'interface en pixel
         x_n, y_n = (x * (settings.GAME_WIDTH + ORDERS_HUD_WIDTH) / lengthWindow, y * (settings.GAME_HEIGHT + HUD_HEIGHT) / heightWindow)
 
         if(x_n >= settings.GAME_WIDTH): #Selection dans Order_Hud
-            if (x_n >= settings.GAME_WIDTH + 12 and x_n <= settings.GAME_WIDTH + 33.3) and ((y_n >= settings.GAME_HEIGHT - 57) and (y_n <= settings.GAME_HEIGHT - 50.5)):
+            if (x_n >= settings.GAME_WIDTH + 12 and x_n <= settings.GAME_WIDTH + 33.3) and ((y_n >= settings.GAME_HEIGHT - 60) and (y_n <= settings.GAME_HEIGHT - 53.5)):
                 self.doOrder()
                 ### ecrire les donnees de l'etat (matrice X)
                 if(self.simu.shouldSaveData):
-                    self.csvHandler.addDataToCSVs([self.selectedPlayer[0]]+ self.selectedPlayer[1], self.getStateForCSVs("Permut"), self.absolu)
-            elif(x_n >= settings.GAME_WIDTH + 37 and x_n <= settings.GAME_WIDTH + 53) and ((y_n >= settings.GAME_HEIGHT - 57) and (y_n <= settings.GAME_HEIGHT - 50.5)):
+                    self.csvHandler.addDataToCSVs([self.selectedPlayer[0]]+ self.selectedPlayer[1], self.getStateForCSVs("Permut"),self.simu.isPlayable)
+            elif(x_n >= settings.GAME_WIDTH + 37 and x_n <= settings.GAME_WIDTH + 53) and ((y_n >= settings.GAME_HEIGHT - 60) and (y_n <= settings.GAME_HEIGHT - 53.5)):
                 #self.selectedPlayer[1] = None
                 team = self.get_team(self.selectedPlayer[0][0])
                 team.resetOrder(self.selectedPlayer[0][1])
         else: #Selection sur le terrain
-            if(button == 1):
+            if(button == 1 and not self.simu.isPlayable):
                 nearestPlayers = [] #Liste des joueurs proches de la souris
                 for k, v in self.state.players:
                     newValue = self.state.player_state(k,v).position.distance(Vector2D(x_n, y_n))
@@ -381,78 +477,9 @@ class SimuGUI(pyglet.window.Window):
                             self.lastPlayersSelectedRecently = [nearestPlayers[0][0]]
                             selectedPlayer = nearestPlayers[0][0]
                     self.selectedPlayer = [selectedPlayer,self.get_team(selectedPlayer[0]).strategy(selectedPlayer[1]).getCurrentOrder()]
-            elif(button == 4 or button == 2):
-                nearestTargets = []  # Liste des cibles proches de la souris
-                for k, v in self.state.players:
-                    newValue = self.state.player_state(k, v).position.distance(Vector2D(x_n, y_n))
-                    if (newValue <= DISTANCEMAXALASOURIS):  # Si le joueur depasse la distance maximale fixee, on ne le considère pas
-                        if (not nearestTargets):  # Si la liste est vide, le premier joueur est le plus proche
-                            nearestTargets.append([(k, v), newValue])
-                        else:  # La liste sera ordonnee et completee incrementalement (indice 0 = le plus proche)
-                            index = 0
-                            isNearest = False
-                            while (index < len(nearestTargets) and not isNearest):
-                                if (newValue < nearestTargets[index][1]):
-                                    isNearest = True
-                                    nearestTargets.insert(index, [(k, v), newValue])
-                                else:
-                                    index += 1
-                            if (not isNearest):
-                                nearestTargets.append([(k, v), newValue])
-                otherTargets = [("Balle",self.state.ball.position.distance(Vector2D(x_n, y_n)))]
-                otherTargets.append(("BalleProchaine",self.state.ball.position.distance(Vector2D(x_n, y_n))))
-                otherTargets.append(("CornerTopLeft",Vector2D(0,GAME_HEIGHT).distance(Vector2D(x_n, y_n))))
-                otherTargets.append(("CornerTopRight", Vector2D(GAME_WIDTH,GAME_HEIGHT).distance(Vector2D(x_n, y_n))))
-                otherTargets.append(("CornerBottomLeft", Vector2D(0, 0).distance(Vector2D(x_n, y_n))))
-                otherTargets.append(("CornerBottomRight", Vector2D(GAME_WIDTH, 0).distance(Vector2D(x_n, y_n))))
-                otherTargets.append(("MiddleTop", Vector2D(GAME_WIDTH/2, GAME_HEIGHT).distance(Vector2D(x_n, y_n))))
-                otherTargets.append(("MiddleBottom", Vector2D(GAME_WIDTH/2, 0).distance(Vector2D(x_n, y_n))))
-                otherTargets.append(("Middle", Vector2D(GAME_WIDTH/2, GAME_HEIGHT/2).distance(Vector2D(x_n, y_n))))
-                if(self.selectedPlayer[0][0] == 1):
-                    otherTargets.append(("SaCage", Vector2D(0, GAME_HEIGHT/2).distance(Vector2D(x_n, y_n))))
-                    otherTargets.append(("CageAdverse", Vector2D(GAME_WIDTH, GAME_HEIGHT/2).distance(Vector2D(x_n, y_n))))
-                else:
-                    otherTargets.append(("SaCage", Vector2D(GAME_WIDTH, GAME_HEIGHT/2).distance(Vector2D(x_n, y_n))))
-                    otherTargets.append(("CageAdverse", Vector2D(0, GAME_HEIGHT/2).distance(Vector2D(x_n, y_n))))
+            elif(button == 4 or button == 2 or (button == 1 and self.simu.isPlayable)):
+                self.findAndSelectNearestTarget(x_n,y_n,button)
 
-                for target in otherTargets:
-                    if (target[1] <= DISTANCEMAXALASOURIS):  # Si la cible depasse la distance maximale fixee, on ne la considère pas
-                        if (not nearestTargets):  # Si la liste est vide, la premiere cible est la plus proche
-                            nearestTargets.append([target[0], target[1]])
-                        else:  # La liste sera ordonnee et completee incrementalement (indice 0 = le plus proche)
-                            index = 0
-                            isNearest = False
-                            while (index < len(nearestTargets) and not isNearest):
-                                if (target[1] < nearestTargets[index][1]):
-                                    isNearest = True
-                                    nearestTargets.insert(index, [target[0], target[1]])
-                                else:
-                                    index += 1
-                            if (not isNearest):
-                                nearestTargets.append([target[0], target[1]])
-
-                if (nearestTargets):  # Si au moins une cible est suffisament proche
-                    if (len(nearestTargets) == 1):  # S'il n'y a qu'un joueur proche
-                        self.lastTargetsSelectedRecently = []  # Plus besoin de garder en memoire les joueurs
-                        selectedTarget = nearestTargets[0][0]
-                    else:
-                        alreadySelected = True
-                        index = 0
-                        while alreadySelected and index < len(nearestTargets):  # Sinon on parcours tous les joueurs, on choisit le premier qu'on a jamais vu
-                            joueur = nearestTargets[index][0]
-                            if (joueur in self.lastTargetsSelectedRecently):
-                                index += 1
-                            else:
-                                self.lastTargetsSelectedRecently.append(joueur)  # On selectionne ce joueur et on considère qu'il a dejà ete vu
-                                selectedTarget = joueur
-                                alreadySelected = False
-                        if (alreadySelected):  # Tous les joueurs proches ont dejà ete selectionnes ! On recommence le parcours des joueurs !
-                            self.lastTargetsSelectedRecently = [nearestTargets[0][0]]
-                            selectedTarget = nearestTargets[0][0]
-                    if(button == 4 and not self.orders_hud.currentTarget=="B"):
-                        self.selectedTarget = selectedTarget
-                    elif(button == 2 or (button == 4 and self.orders_hud.currentTarget=="B")):
-                        self.selectedTarget2 = selectedTarget
 
 
     def _switch_hud_names(self):
@@ -608,6 +635,14 @@ class SimuGUI(pyglet.window.Window):
 
     def set(self, simu):
         self.simu = simu
+        if (self.simu.isPlayable):
+            equipe = self.csvHandler.getEquipe()
+            if (equipe == 0):
+                nbJoueur = self.simu.team1.nb_players
+            else:
+                nbJoueur = self.simu.team2.nb_players
+            self.selectedPlayer = [(equipe+1, np.random.randint(nbJoueur)), None]
+            self.simu.setIgnoredPlayer(self.selectedPlayer[0])
         try:
             self.simu.listeners += self
         except Exception:
@@ -617,7 +652,7 @@ class SimuGUI(pyglet.window.Window):
         self.update()
     def play(self):
         try:
-            if self._mode_next != self.MANUAL and self.simu.unseenState:
+            if self._mode_next != self.MANUAL and (self.simu.unseenState or self.simu.isPlayable):
                 self._mode_next = self.MANUAL
             self.simu.start_thread()
         except Exception as e:
@@ -669,6 +704,8 @@ class SimuGUI(pyglet.window.Window):
     def end_round(self, team1, team2, state):
         self.change_state(state)
         self.resetOrderGUI()
+        if self._mode_next != self.MANUAL and (self.simu.unseenState or self.simu.isPlayable):
+            self._mode_next = self.MANUAL
         pass
 
     def end_match(self, team1, team2, state):

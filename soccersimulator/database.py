@@ -28,30 +28,27 @@ class csvHandler(object):
             return data[1:]
         return data
 
-    def saveStateInCSV(self, currentState, absolu):
-        if os.path.isfile(CSVFEATURES) == False:
-            with open(CSVFEATURES, 'w', newline='') as f:
+    def saveStateInCSV(self, currentState, csvPath = CSVFEATURES):
+        if os.path.isfile(csvPath) == False:
+            with open(csvPath, 'w', newline='') as f:
                 writer = csv.writer(f, delimiter='_')
-                if False:
-                    writer.writerow(['ballPos', "nextLikelyPosition", "posTeam1", "typeTeam1", "posTeam2", "typeTeam2", "ballWithTeam"])
-                else:
-                    writer.writerow(['idPlayer','posPlayer', 'typePlayer', 'distAllieLPP', 'typeAllieLPP', 'distAdvLPP', 'typeAdvLPP', 'distBall', 'distSaCage', 'distCageAdv',
+                writer.writerow(['idPlayer','posPlayer', 'typePlayer', 'distAllieLPP', 'typeAllieLPP', 'distAdvLPP', 'typeAdvLPP', 'distBall', 'distSaCage', 'distCageAdv',
                         'distDefCage1', 'typeDefCage1', 'distAdvCage1', 'typeAdvCage1', 'distBallCage1', 'distDefCage2', 'typeDefCage2', 'distAdvCage2', 'typeAdvCage2', 'distBallCage2', 'ballPos', 'nextLikelyPosition', 'ballWithTeam'])
-        with open(CSVFEATURES, 'a', newline='') as f:
+        with open(csvPath, 'a', newline='') as f:
             writer = csv.writer(f, delimiter='_')
             writer.writerow(currentState)
 
-    def saveOrderInCSV(self, order, appendFile = False):
-        if os.path.isfile(CSVLABELS) == False:
-            with open(CSVLABELS, 'w', newline='') as f:
+    def saveOrderInCSV(self, order, appendFile = False, csvPath = CSVLABELS):
+        if os.path.isfile(csvPath) == False:
+            with open(csvPath, 'w', newline='') as f:
                 writer = csv.writer(f, delimiter='_')
                 writer.writerow(['joueur', 'action', 'cible'])
         if appendFile:
-            data = self.import_csv(CSVLABELS)
+            data = self.import_csv(csvPath)
             # print("##DATA: ",data)
             lastRow = data[-1]
             # print("##LASTROW: ",lastRow)
-            with open(CSVLABELS, 'w', newline='') as f:
+            with open(csvPath, 'w', newline='') as f:
                 writer = csv.writer(f, delimiter='_')
                 for row in data:
                     if row == lastRow:
@@ -67,22 +64,26 @@ class csvHandler(object):
                     else:
                         writer.writerow((row))
         else:
-            with open(CSVLABELS, 'a', newline='') as f:
+            with open(csvPath , 'a', newline='') as f:
                 writer = csv.writer(f, delimiter='_')
                 for elt in order:
                     if elt == "se deplace vers":
                         elt.replace("deplace", "deplace")
                 writer.writerow([order])
 
-    def addDataToCSVs(self, order, currentState, absolu):
+    def addDataToCSVs(self, order, currentState, inBothFile = False):
         if (self.lastStateSaved is None) or self.lastStateSaved != currentState:
             self.lastStateSaved = currentState
             appendFile = False
         elif self.lastStateSaved == currentState:
             appendFile = True
         self.saveOrderInCSV(order, appendFile=appendFile)
+        if inBothFile:
+            self.saveOrderInCSV(order, appendFile=appendFile, csvPath=CSVLABELSTOADD)
         if not appendFile:
-            self.saveStateInCSV(currentState, absolu)
+            self.saveStateInCSV(currentState)
+            if inBothFile:
+                self.saveStateInCSV(currentState, CSVFEATURESTOADD)
 
     def combineCsv(self, filePath1, filePath2, outputPath, mode='w'):
         data1 = self.import_csv(filePath1)
@@ -190,35 +191,6 @@ class csvHandler(object):
         # Ajout au resultat final
         return newState
 
-    @DeprecationWarning
-    def readStateCsv(self,stateFilePath):
-        stateData = self.import_csv(stateFilePath)[1:]
-        result = []
-        for state in stateData:
-            newState = dict()
-            ballList = []
-            for ball in state[:2]:
-                ballList.append(self.strToFloatTuple(ball))
-            ballList.append(state[-1])
-            newState["ball"] = ballList
-            # L'equipe 1
-            team1 = []
-            joueur = state[2].split("/")
-            type = state[3].split("/")
-            for i in range(len(joueur)):
-                team1.append({"position":self.strToFloatTuple(joueur[i]),"type":type[i]})
-            newState["team1"] = team1
-            # L'equipe 2
-            team1 = []
-            joueur = state[4].split("/")
-            type = state[5].split("/")
-            for i in range(len(joueur)):
-                team1.append({"position": self.strToFloatTuple(joueur[i]), "type": type[i]})
-            newState["team2"] = team1
-            newState["ballControl"] = state[6]
-            result.append(newState)
-        return result
-
     def readOrderCsv(self,orderFilePath):
         ordersData = self.import_csv(orderFilePath)[1:]
         result = []
@@ -230,8 +202,8 @@ class csvHandler(object):
             result.append(ordersDico)
         return result
 
-
-    def newReadStateCsv(self,stateFilePath):
+    @DeprecationWarning
+    def readStateCsv(self, stateFilePath):
         stateData = self.import_csv(stateFilePath)[1:]
         result = []
         for state in stateData:
@@ -794,3 +766,17 @@ class csvHandler(object):
             currentState.append(equipe['distBallCage'])
             states[iState] = currentState
         return states
+
+    def getEquipe(self):
+        equipe = self.import_csv(CSVPLAYABLEINFO)
+        if(not equipe):
+            equipe = 0
+        else:
+            equipe = int(equipe[0][0])
+        self.writeEquipe(-equipe+1)
+        return equipe
+
+    def writeEquipe(self,value):
+        with open(CSVPLAYABLEINFO, 'w', newline='') as f:
+            writer = csv.writer(f, delimiter='_')
+            writer.writerow(str(value))
