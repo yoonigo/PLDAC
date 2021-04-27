@@ -374,7 +374,7 @@ class Orders_hud(object):
                 self.player = v
             elif k == "ongoing_order": #A CONNECTE AU RESTE (pour l'instant c'est juste une string)
                 if isinstance(v, list) :
-                    add = " à " + str(v[1])
+                    add = " à " + str(float(int(v[1]*100)/100))
                     v = v[0]
                 else:
                     add = ""
