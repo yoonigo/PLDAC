@@ -5,6 +5,7 @@ from .settings import GAME_WIDTH
 from .utils import Vector2D
 from .databaseSettings import *
 from sklearn.manifold import TSNE
+from sklearn.neighbors import KernelDensity
 import matplotlib.pyplot as plt
 
 class csvHandler(object):
@@ -579,100 +580,28 @@ class csvHandler(object):
         plt.scatter(dataX_embedded[:,0],dataX_embedded[:,1])
         plt.savefig("Dessin")
 
-    def findLowdensityState(self, nbState = 1,offset = 2):
-        #print("In findLowDensityState")
+    def findLowdensityState(self, nbState = 1):
+        #Recuperationd des donnees
         dataX = self.dataToStateNpArray(self.import_csv(CSVFEATURES,self.rowToABS)[1:])
-        indexMaxMinDists = [-1 for i in range(nbState+offset)]
-        indexMoyDists = [-1 for i in range(nbState+offset)]
-        maxMinDists = [-1 for i in range(nbState+offset)]
-        moyDists = [0 for i in range(nbState+offset)]
-        for iData in range(len(dataX)):
-            currentMoyDist = 0
-            currentMinDist = -1
-            for data in dataX:
-                #Calcul des distances
-                currentDist = np.linalg.norm(dataX[iData]-data)
-                #Calcul iteratif de la moyenne
-                currentMoyDist += currentDist
-                #Calcul de la distance minimale
-                if(currentDist != 0):
-                    if(currentMinDist == -1):
-                        currentMinDist = currentDist
-                    else:
-                        if(currentDist < currentMinDist):
-                            currentMinDist = currentDist
-            #Calcul du max des distances minimales !
-            iMaxMinDist = 0
-            haveUpdatedMaxMin = False
-            while (iMaxMinDist<len(maxMinDists) and not haveUpdatedMaxMin):
-                if(currentMinDist > maxMinDists[iMaxMinDist]):
-                    for index in range(len(maxMinDists)-2,iMaxMinDist-1,-1):
-                        indexMaxMinDists[index+1] = indexMaxMinDists[index]
-                        maxMinDists[index+1] = maxMinDists[index]
-                    indexMaxMinDists[iMaxMinDist] = iData
-                    maxMinDists[iMaxMinDist] = currentMinDist
-                    haveUpdatedMaxMin = True
-                iMaxMinDist += 1
-            #Calcul du max des moyenne des distances
-            currentMoyDist /= len(dataX)-1
-            iMoyDist = 0
-            haveUpdatedMoy = False
-            while (iMoyDist < len(moyDists) and not haveUpdatedMoy):
-                if (currentMoyDist > moyDists[iMoyDist]):
-                    for index in range(len(moyDists) - 2, iMoyDist - 1, -1):
-                        indexMoyDists[index + 1] = indexMoyDists[index]
-                        moyDists[index + 1] = moyDists[index]
-                    indexMoyDists[iMoyDist] = iData
-                    moyDists[iMoyDist] = currentMoyDist
-                    haveUpdatedMoy = True
-                iMoyDist += 1
-        #print(indexMaxMinDists, indexMoyDists, iData)
-        #print(maxMinDists,moyDists)
-        #Comptage des valeurs rencontrées en fonction de leur ordre.
-        allIndexValuate = {}
-        for iValue in range(len(indexMaxMinDists)):
-            oldValue = allIndexValuate.get(indexMaxMinDists[iValue],0)
-            allIndexValuate[indexMaxMinDists[iValue]] = oldValue + (-iValue+nbState+offset)
-            oldValue = allIndexValuate.get(indexMoyDists[iValue],0)
-            allIndexValuate[indexMoyDists[iValue]] = oldValue + (-iValue+nbState+offset)
-        #print(allIndexValuate)
-        #Tri des index en fonction de leur valeur de comptage
-        sortedIndexValuate = []
-        for key in allIndexValuate.keys():
-            if(not sortedIndexValuate):
-                sortedIndexValuate.append((key,allIndexValuate[key]))
-            else:
-                currentSortedindex = 0
-                isAdded = False
-                while(currentSortedindex < len(sortedIndexValuate) and not isAdded):
-                    if(sortedIndexValuate[currentSortedindex][1] > allIndexValuate[key]):
-                        currentSortedindex+=1
-                    else:
-                        sortedIndexValuate.insert(currentSortedindex,(key,allIndexValuate[key]))
-                        isAdded = True
-                if(not isAdded):
-                    sortedIndexValuate.append((key,allIndexValuate[key]))
-        #print(sortedIndexValuate)
-        #Selection des nbState index voulu
+        #Modele d'evaluation de densite et calcul des densites
+        kde = KernelDensity(kernel='gaussian', bandwidth=50).fit(dataX)
+        log_density = kde.score_samples(dataX)
+        #Choix aléatoire entre les nbAdded + nbState éléments de faible densité !
+        bestIndex = []
+        nbAdded = 20
+        if(nbState+nbAdded > len(dataX)):
+            nbAdded = len(dataX) - nbState
+        #Avec un avantage lineaire des moins denses
+        for i in range(nbState+nbAdded):
+            currentBestIndex = np.argmin(log_density)
+            bestIndex = bestIndex + [currentBestIndex for j in range(nbState+nbAdded - i)]
+            log_density = np.delete(log_density,np.argmin(log_density))
+        #Selection des indices finaux
         wantedIndex = []
-        valueComptage = sortedIndexValuate[0][1]
-        currentIndex = 0
-        while len(wantedIndex) != nbState: #Choix parmi ceux qui on la valeur de comptage la plus elevee
-            possibleIndex = [sortedIndexValuate[currentIndex][0]]
-            currentIndex+=1
-            while valueComptage == sortedIndexValuate[currentIndex][1]:
-                currentIndex+=1
-                possibleIndex.append(sortedIndexValuate[currentIndex][0])
-            if(len(possibleIndex)+len(wantedIndex) > nbState): #Si on a trop de choix possible : choix aleatoire !
-                nbIndexManquant = nbState - len(wantedIndex)
-                for i in range(nbIndexManquant):
-                    randomIndex = np.random.randint(len(possibleIndex))
-                    wantedIndex.append(possibleIndex[randomIndex])
-                    possibleIndex.pop(randomIndex)
-            else:
-                #Ajout de tous les indexs possibles courants
-                for index in possibleIndex:
-                    wantedIndex.append(index)
+        while len(wantedIndex) != nbState:
+            index = np.random.randint(len(bestIndex))
+            if(not bestIndex[index] in wantedIndex):
+                wantedIndex.append(bestIndex[index])
         return dataX[wantedIndex]
 
     def evaluateDensity(self,state):
