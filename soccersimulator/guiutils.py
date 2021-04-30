@@ -298,61 +298,68 @@ class Orders_hud(object):
         self.targetingType = 0
         self.mixageTargetValue = 0.5
         self.sprites = dict()
-        self.sprites["title"] = TextSprite(position=Vector2D(settings.GAME_WIDTH + 5, settings.GAME_HEIGHT+5),
-                                             color=[255,116,0,255],
-                                             scale=0.07)
-        self.sprites["title"]._label.text = "ORDRE :"
-        self.sprites["instruction1"] = TextSprite(position=Vector2D(settings.GAME_WIDTH + 5, settings.GAME_HEIGHT),
+        #self.sprites["title"] = TextSprite(position=Vector2D(settings.GAME_WIDTH + 5, settings.GAME_HEIGHT+5),
+        #                                     color=[255,116,0,255],
+        #                                     scale=0.07)
+        #self.sprites["title"]._label.text = "ORDRE :"
+        self.sprites["player"] = TextSprite(position=Vector2D(settings.GAME_WIDTH + 23, settings.GAME_HEIGHT + 5),
+                                            color=ORDERS_HUD_COLOR,
+                                            scale=0.06)
+        self.sprites["ongoing_action"] = TextSprite(position=Vector2D(settings.GAME_WIDTH + 5, settings.GAME_HEIGHT),
+                                                   color=ORDERS_HUD_COLOR,
+                                                   scale=0.06)
+        self.sprites["ongoing_target"] = TextSprite(position=Vector2D(settings.GAME_WIDTH + 5, settings.GAME_HEIGHT - 5),
+                                                   color=ORDERS_HUD_COLOR,
+                                                   scale=0.06)
+        self.sprites["separator"] = TextSprite(position=Vector2D(settings.GAME_WIDTH + 5, settings.GAME_HEIGHT - 10),
+                                                  color=ORDERS_HUD_COLOR,
+                                                  scale=0.05)
+        self.sprites["separator"]._label.text = "--------------------------------------------------------------"
+        self.sprites["instruction1"] = TextSprite(position=Vector2D(settings.GAME_WIDTH + 5, settings.GAME_HEIGHT - 15),
                                              color=[0,202,255,255],
                                              scale=0.05)
-        self.sprites["instruction1"]._label.text = "1) Cliquez sur le joueur pour le selectionner"
-        self.sprites["instruction2"] = TextSprite(position=Vector2D(settings.GAME_WIDTH + 5, settings.GAME_HEIGHT - 5),
+        self.sprites["instruction1"]._label.text = "Choix des cibles : Clic gauche/droit"
+        self.sprites["instruction2"] = TextSprite(position=Vector2D(settings.GAME_WIDTH + 5, settings.GAME_HEIGHT - 20),
                                              color=[0,202,255,255],
                                              scale=0.05)
-        self.sprites["instruction2"]._label.text = "2) Appuyez sur A pour changer l'action"
-        self.sprites["instruction3"] = TextSprite(position=Vector2D(settings.GAME_WIDTH + 5, settings.GAME_HEIGHT - 10),
+        self.sprites["instruction2"]._label.text = "Choix de l'action : A"
+        self.sprites["instruction3"] = TextSprite(position=Vector2D(settings.GAME_WIDTH + 5, settings.GAME_HEIGHT - 25),
                                              color=[0,202,255,255],
                                              scale=0.05)
-        self.sprites["instruction3"]._label.text = "3) Appuyez sur T pour changer de ciblage"
-        self.sprites["instruction4"] = TextSprite(position=Vector2D(settings.GAME_WIDTH + 5, settings.GAME_HEIGHT - 15),
+        self.sprites["instruction3"]._label.text = "Choix du ciblage : T"
+        self.sprites["instruction4"] = TextSprite(position=Vector2D(settings.GAME_WIDTH + 5, settings.GAME_HEIGHT - 30),
                                                   color=[0, 202, 255, 255],
                                                   scale=0.05)
-        self.sprites["instruction4"]._label.text = "4) Z,E : valeur du mixage, R : autre cible"
-        self.sprites["player"] = TextSprite(position=Vector2D(settings.GAME_WIDTH + 5, settings.GAME_HEIGHT - 20),
-                                             color=ORDERS_HUD_COLOR,
-                                             scale=0.06)
-        self.sprites["ongoing_order"] = TextSprite(position=Vector2D(settings.GAME_WIDTH + 5, settings.GAME_HEIGHT - 25),
-                                             color=ORDERS_HUD_COLOR,
-                                             scale=0.06)
-        self.sprites["action"] = TextSprite(position=Vector2D(settings.GAME_WIDTH + 5, settings.GAME_HEIGHT - 30),
+        self.sprites["instruction4"]._label.text = "Réduit/Augmente la valeur du mixage : Z/E"
+        self.sprites["action"] = TextSprite(position=Vector2D(settings.GAME_WIDTH + 5, settings.GAME_HEIGHT - 35),
                                              color=ORDERS_HUD_COLOR,
                                              scale=0.06)
         self.sprites["action"]._label.text = "Choix de l'action : "+self.action
-        self.sprites["target"] = TextSprite(position=Vector2D(settings.GAME_WIDTH + 5, settings.GAME_HEIGHT - 35),
+        self.sprites["target"] = TextSprite(position=Vector2D(settings.GAME_WIDTH + 5, settings.GAME_HEIGHT - 40),
                                            color=ORDERS_HUD_COLOR,
                                            scale=0.06)
         self.sprites["target"]._label.text = "Choix de la cible : "+self.target
-        self.sprites["target2"] = TextSprite(position=Vector2D(settings.GAME_WIDTH + 5, settings.GAME_HEIGHT - 40),
+        self.sprites["target2"] = TextSprite(position=Vector2D(settings.GAME_WIDTH + 5, settings.GAME_HEIGHT - 45),
                                             color=ORDERS_HUD_COLOR,
                                             scale=0.06)
         self.sprites["target2"]._label.text = ""
-        self.sprites["targetMixer"] = TextSprite(position=Vector2D(settings.GAME_WIDTH + 5, settings.GAME_HEIGHT - 45),
+        self.sprites["targetMixer"] = TextSprite(position=Vector2D(settings.GAME_WIDTH + 5, settings.GAME_HEIGHT - 50),
                                              color=ORDERS_HUD_COLOR,
                                              scale=0.06)
         self.sprites["targetMixer"]._label.text = ""
 
-        self.sprites["ok"] = TextSprite(position=Vector2D(settings.GAME_WIDTH*6/5-15, settings.GAME_HEIGHT - 55),
+        self.sprites["ok"] = TextSprite(position=Vector2D(settings.GAME_WIDTH*6/5-15, settings.GAME_HEIGHT - 58),
                                            color=ORDERS_HUD_COLOR,
                                            scale=0.06)
         self.sprites["ok"]._label.text = "AJOUTER"
-        self.rectangle = pyglet.shapes.Rectangle(settings.GAME_WIDTH+27-15, settings.GAME_HEIGHT - 57, width=21, height=6.5)
+        self.rectangle = pyglet.shapes.Rectangle(settings.GAME_WIDTH+27-15, settings.GAME_HEIGHT - 60, width=21, height=6.5)
         self.rectangle.opacity = 120
         #######################################
-        self.sprites["ok2"] = TextSprite(position=Vector2D(settings.GAME_WIDTH*6/5+10, settings.GAME_HEIGHT - 55),
+        self.sprites["ok2"] = TextSprite(position=Vector2D(settings.GAME_WIDTH*6/5+10, settings.GAME_HEIGHT - 58),
                                         color=ORDERS_HUD_COLOR,
                                         scale=0.06)
         self.sprites["ok2"]._label.text = "VIDER"
-        self.rectangle2 = pyglet.shapes.Rectangle(settings.GAME_WIDTH+27+10, settings.GAME_HEIGHT - 57, width=15.5,
+        self.rectangle2 = pyglet.shapes.Rectangle(settings.GAME_WIDTH+27+10, settings.GAME_HEIGHT - 60, width=15.5,
                                                  height=6.5)
         self.rectangle2.opacity = 120
         #okImg = pyglet.image.load("ok.png")
@@ -363,10 +370,25 @@ class Orders_hud(object):
     def set_val(self, **kwargs):
         for k, v in kwargs.items():
             if k == "player":
-                self.sprites[k]._label.text = "Joueur selectionne : "+v
+                self.sprites[k]._label.text = ""+v
                 self.player = v
             elif k == "ongoing_order": #A CONNECTE AU RESTE (pour l'instant c'est juste une string)
-                self.sprites[k]._label.text = "Action en cours : "+v
+                if isinstance(v, list) :
+                    add = " à " + str(float(int(v[1]*100)/100))
+                    v = v[0]
+                else:
+                    add = ""
+                v = v.replace("Aucun", "Aucune")
+                v = v.replace("se deplace", "Va")
+                v = v.replace("dribble", "Dribble")
+                v = v.replace("tire", "Tire")
+                sepPosition = v.find("entre") + 5
+                if sepPosition == 4:
+                    sepPosition = v.find("vers") + 4
+                if sepPosition == 3:
+                    sepPosition = len(v)
+                self.sprites["ongoing_action"]._label.text = "Action : "+v[:sepPosition] + add
+                self.sprites["ongoing_target"]._label.text = "Cibles : "+v[sepPosition+1:]
             elif k == "target":
                 #self.targets = v
                 self.target = v
@@ -392,9 +414,12 @@ class Orders_hud(object):
 
     def change_targeting(self):
         self.targetingType = 1 - self.targetingType
-        if(self.targetingType == 0 and self.currentTarget == "B"):
-            self.currentTarget = "A"
-
+        if(self.targetingType == 0):
+            self.sprites["instruction1"]._label.text = "Choix des cibles : Clic gauche/droit"
+            if(self.currentTarget == "B"):
+                self.currentTarget = "A"
+        else:
+            self.sprites["instruction1"]._label.text = "Choix des cibles : Clic gauche (A), Clic droit (B)"
     def change_target(self):
         if (self.targetingType == 1):
             if(self.currentTarget == "A"):

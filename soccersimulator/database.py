@@ -5,6 +5,7 @@ from .settings import GAME_WIDTH
 from .utils import Vector2D
 from .databaseSettings import *
 from sklearn.manifold import TSNE
+from sklearn.neighbors import KernelDensity
 import matplotlib.pyplot as plt
 
 class csvHandler(object):
@@ -28,30 +29,27 @@ class csvHandler(object):
             return data[1:]
         return data
 
-    def saveStateInCSV(self, currentState, absolu):
-        if os.path.isfile(CSVFEATURES) == False:
-            with open(CSVFEATURES, 'w', newline='') as f:
+    def saveStateInCSV(self, currentState, csvPath = CSVFEATURES):
+        if os.path.isfile(csvPath) == False:
+            with open(csvPath, 'w', newline='') as f:
                 writer = csv.writer(f, delimiter='_')
-                if False:
-                    writer.writerow(['ballPos', "nextLikelyPosition", "posTeam1", "typeTeam1", "posTeam2", "typeTeam2", "ballWithTeam"])
-                else:
-                    writer.writerow(['idPlayer','posPlayer', 'typePlayer', 'distAllieLPP', 'typeAllieLPP', 'distAdvLPP', 'typeAdvLPP', 'distBall', 'distSaCage', 'distCageAdv',
+                writer.writerow(['idPlayer','posPlayer', 'typePlayer', 'distAllieLPP', 'typeAllieLPP', 'distAdvLPP', 'typeAdvLPP', 'distBall', 'distSaCage', 'distCageAdv',
                         'distDefCage1', 'typeDefCage1', 'distAdvCage1', 'typeAdvCage1', 'distBallCage1', 'distDefCage2', 'typeDefCage2', 'distAdvCage2', 'typeAdvCage2', 'distBallCage2', 'ballPos', 'nextLikelyPosition', 'ballWithTeam'])
-        with open(CSVFEATURES, 'a', newline='') as f:
+        with open(csvPath, 'a', newline='') as f:
             writer = csv.writer(f, delimiter='_')
             writer.writerow(currentState)
 
-    def saveOrderInCSV(self, order, appendFile = False):
-        if os.path.isfile(CSVLABELS) == False:
-            with open(CSVLABELS, 'w', newline='') as f:
+    def saveOrderInCSV(self, order, appendFile = False, csvPath = CSVLABELS):
+        if os.path.isfile(csvPath) == False:
+            with open(csvPath, 'w', newline='') as f:
                 writer = csv.writer(f, delimiter='_')
                 writer.writerow(['joueur', 'action', 'cible'])
         if appendFile:
-            data = self.import_csv(CSVLABELS)
+            data = self.import_csv(csvPath)
             # print("##DATA: ",data)
             lastRow = data[-1]
             # print("##LASTROW: ",lastRow)
-            with open(CSVLABELS, 'w', newline='') as f:
+            with open(csvPath, 'w', newline='') as f:
                 writer = csv.writer(f, delimiter='_')
                 for row in data:
                     if row == lastRow:
@@ -67,22 +65,26 @@ class csvHandler(object):
                     else:
                         writer.writerow((row))
         else:
-            with open(CSVLABELS, 'a', newline='') as f:
+            with open(csvPath , 'a', newline='') as f:
                 writer = csv.writer(f, delimiter='_')
                 for elt in order:
                     if elt == "se deplace vers":
                         elt.replace("deplace", "deplace")
                 writer.writerow([order])
 
-    def addDataToCSVs(self, order, currentState, absolu):
+    def addDataToCSVs(self, order, currentState, inBothFile = False):
         if (self.lastStateSaved is None) or self.lastStateSaved != currentState:
             self.lastStateSaved = currentState
             appendFile = False
         elif self.lastStateSaved == currentState:
             appendFile = True
         self.saveOrderInCSV(order, appendFile=appendFile)
+        if inBothFile:
+            self.saveOrderInCSV(order, appendFile=appendFile, csvPath=CSVLABELSTOADD)
         if not appendFile:
-            self.saveStateInCSV(currentState, absolu)
+            self.saveStateInCSV(currentState)
+            if inBothFile:
+                self.saveStateInCSV(currentState, CSVFEATURESTOADD)
 
     def combineCsv(self, filePath1, filePath2, outputPath, mode='w'):
         data1 = self.import_csv(filePath1)
@@ -190,35 +192,6 @@ class csvHandler(object):
         # Ajout au resultat final
         return newState
 
-    @DeprecationWarning
-    def readStateCsv(self,stateFilePath):
-        stateData = self.import_csv(stateFilePath)[1:]
-        result = []
-        for state in stateData:
-            newState = dict()
-            ballList = []
-            for ball in state[:2]:
-                ballList.append(self.strToFloatTuple(ball))
-            ballList.append(state[-1])
-            newState["ball"] = ballList
-            # L'equipe 1
-            team1 = []
-            joueur = state[2].split("/")
-            type = state[3].split("/")
-            for i in range(len(joueur)):
-                team1.append({"position":self.strToFloatTuple(joueur[i]),"type":type[i]})
-            newState["team1"] = team1
-            # L'equipe 2
-            team1 = []
-            joueur = state[4].split("/")
-            type = state[5].split("/")
-            for i in range(len(joueur)):
-                team1.append({"position": self.strToFloatTuple(joueur[i]), "type": type[i]})
-            newState["team2"] = team1
-            newState["ballControl"] = state[6]
-            result.append(newState)
-        return result
-
     def readOrderCsv(self,orderFilePath):
         ordersData = self.import_csv(orderFilePath)[1:]
         result = []
@@ -230,8 +203,8 @@ class csvHandler(object):
             result.append(ordersDico)
         return result
 
-
-    def newReadStateCsv(self,stateFilePath):
+    @DeprecationWarning
+    def readStateCsv(self, stateFilePath):
         stateData = self.import_csv(stateFilePath)[1:]
         result = []
         for state in stateData:
@@ -360,7 +333,7 @@ class csvHandler(object):
             res.append(ordersDico)
         return res
 
-    def decode(self, mixOrder, nearestOrder,redo = 0):
+    def decode(self, mixOrder, nearestAction = None):
         # Entrée : [0,1,0,0,0,0,0,1,0...], [0,1,0,0,0,0,0,1,0...]
         # On crée la liste des valeurs possibles pour y accéder par indice
         ordre = []
@@ -380,9 +353,10 @@ class csvHandler(object):
             ordre.append(choix[1])
         elif mixOrder[2] > mixOrder[1] and mixOrder[2] > mixOrder[0]:
             ordre.append(choix[2])
-        else:  # s'il y a des égalités, choisir l'action de l'état le plus proche
-            ordre.append(choix[max(range(3), key=nearestOrder.__getitem__)])
-        #print("Action : ", ordre)
+        elif(nearestAction):  # s'il y a des égalités, choisir l'action de l'état le plus proche
+            ordre.append(choix[nearestAction])
+        else:
+            ordre.append(choix[0])
 
         # Décoder la/les cible(s)
         #Calcul des deux valeurs maximales !
@@ -390,58 +364,19 @@ class csvHandler(object):
         indicesWhitoutMax = [i for i in range(len(cibles))]
         indicesWhitoutMax.remove(np.argmax(cibles))
         maxi = [np.amax(cibles),np.amax(cibles[indicesWhitoutMax])]
-        #print(maxi)
         if(maxi[0] == maxi[1]): #Si c'est la même valeur
-            indices = np.where(cibles == maxi[0])[0] #Combien ont cette valeur ?
-            if(len(indices) == 2): #Deux ? C'est un ordre mixé
-                ordre.append(choix[3 +indices[0]])
-                ordre.append(choix[3 +indices[1]])
-                ordre.append(mixOrder[-1])
-            else: #Plus de deux ? On a une égalité, il faut trancher
-                newMixOrder = np.zeros(mixOrder.shape)
-                newMixOrder[:3] = mixOrder[:3]
-                newMixOrder[-1] = mixOrder[-1]
-                newMixOrder[3:-1] = np.array(mixOrder[3:-1]) + np.array(nearestOrder[3:-1]) #Valorisation de l'ordre le plus proche
-                return self.decode(newMixOrder, nearestOrder, redo = 1)
+            indices = np.where(cibles == maxi[0])[0]
+            ordre.append(choix[3 +indices[0]])
+            ordre.append(choix[3 +indices[1]])
+            ordre.append(mixOrder[-1])
         else: #Les valeurs maximales sont différentes !
             #Valide la première cible
             indicesGood = np.where(cibles == maxi[0])[0][0]
             ordre.append(choix[3 + indicesGood])
-            if (maxi[1] != 0):  #Si non unicité de la cible, i.e. mixage necessaire)
-                #Combien ont la valeur de la deuxième ?
+            if (maxi[1] != 0 and (mixOrder[-1]>0 and mixOrder[-1] < 1)):  #Si non unicité de la cible, i.e. mixage necessaire)
                 indices = np.where(cibles == maxi[1])[0]
-                if (len(indices) == 1):  # Une seule ? Parfait on l'ajoute avec le mixage
-                    ordre.append(choix[3 + indices[0]])
-                    ordre.append(mixOrder[-1])
-                else:  # Plus d'une ? On a une égalité, il faut trancher
-                    newMixOrder = np.zeros(mixOrder.shape)
-                    newMixOrder[:3] = mixOrder[:3]
-                    newMixOrder[-1] = mixOrder[-1]
-                    newMixOrder[3:-1] = np.array(mixOrder[3:-1]) + np.array(nearestOrder[3:-1]) #On valorise l'ordre le plus proche
-                    if(redo == 1): #Si on valorise une cible unique par rapport à une cible mixée, on garde la cible unique
-                        return self.decode(nearestOrder,nearestOrder) #En gros on execute le nearest order
-                    return self.decode(newMixOrder, nearestOrder, redo = 1)
-
-
-        """
-        index = max(range(len(mixOrder[3:-1])), key=mixOrder.__getitem__)
-        maxValue = mixOrder[3 + index]
-        mix = np.array(mixOrder[3:-1])
-        indices = np.where(mix == maxValue)[0]
-        # S'il y a une autre cible avec la même valeur:
-        if(len(indices) == 1):
-            ordre.append(choix[3 + index])
-        if len(indices) > 1:
-            # On prend la cible de l'état le plus proche
-            index = max(range(len(nearestOrder[3:-1])), key=nearestOrder.__getitem__)
-            maxValue = nearestOrder[3 + maxValue]
-            nearest = np.array(nearestOrder[3:-1])
-            inds = np.where(nearest == maxValue)[0]
-            if len(inds) > 1:  # mixage de cibles
-                ordre.append(choix[3 + inds[0]])
-                ordre.append(choix[3 + inds[1]])
-                ordre.append(nearestOrder[-1])
-        """
+                ordre.append(choix[3 + indices[0]])
+                ordre.append(mixOrder[-1])
         return ordre
 
     @DeprecationWarning
@@ -607,100 +542,28 @@ class csvHandler(object):
         plt.scatter(dataX_embedded[:,0],dataX_embedded[:,1])
         plt.savefig("Dessin")
 
-    def findLowdensityState(self, nbState = 1,offset = 2):
-        #print("In findLowDensityState")
-        dataX = self.dataToStateNpArray(self.import_csv(CSVFEATURES,self.rowToABS)[1:])
-        indexMaxMinDists = [-1 for i in range(nbState+offset)]
-        indexMoyDists = [-1 for i in range(nbState+offset)]
-        maxMinDists = [-1 for i in range(nbState+offset)]
-        moyDists = [0 for i in range(nbState+offset)]
-        for iData in range(len(dataX)):
-            currentMoyDist = 0
-            currentMinDist = -1
-            for data in dataX:
-                #Calcul des distances
-                currentDist = np.linalg.norm(dataX[iData]-data)
-                #Calcul iteratif de la moyenne
-                currentMoyDist += currentDist
-                #Calcul de la distance minimale
-                if(currentDist != 0):
-                    if(currentMinDist == -1):
-                        currentMinDist = currentDist
-                    else:
-                        if(currentDist < currentMinDist):
-                            currentMinDist = currentDist
-            #Calcul du max des distances minimales !
-            iMaxMinDist = 0
-            haveUpdatedMaxMin = False
-            while (iMaxMinDist<len(maxMinDists) and not haveUpdatedMaxMin):
-                if(currentMinDist > maxMinDists[iMaxMinDist]):
-                    for index in range(len(maxMinDists)-2,iMaxMinDist-1,-1):
-                        indexMaxMinDists[index+1] = indexMaxMinDists[index]
-                        maxMinDists[index+1] = maxMinDists[index]
-                    indexMaxMinDists[iMaxMinDist] = iData
-                    maxMinDists[iMaxMinDist] = currentMinDist
-                    haveUpdatedMaxMin = True
-                iMaxMinDist += 1
-            #Calcul du max des moyenne des distances
-            currentMoyDist /= len(dataX)-1
-            iMoyDist = 0
-            haveUpdatedMoy = False
-            while (iMoyDist < len(moyDists) and not haveUpdatedMoy):
-                if (currentMoyDist > moyDists[iMoyDist]):
-                    for index in range(len(moyDists) - 2, iMoyDist - 1, -1):
-                        indexMoyDists[index + 1] = indexMoyDists[index]
-                        moyDists[index + 1] = moyDists[index]
-                    indexMoyDists[iMoyDist] = iData
-                    moyDists[iMoyDist] = currentMoyDist
-                    haveUpdatedMoy = True
-                iMoyDist += 1
-        #print(indexMaxMinDists, indexMoyDists, iData)
-        #print(maxMinDists,moyDists)
-        #Comptage des valeurs rencontrées en fonction de leur ordre.
-        allIndexValuate = {}
-        for iValue in range(len(indexMaxMinDists)):
-            oldValue = allIndexValuate.get(indexMaxMinDists[iValue],0)
-            allIndexValuate[indexMaxMinDists[iValue]] = oldValue + (-iValue+nbState+offset)
-            oldValue = allIndexValuate.get(indexMoyDists[iValue],0)
-            allIndexValuate[indexMoyDists[iValue]] = oldValue + (-iValue+nbState+offset)
-        #print(allIndexValuate)
-        #Tri des index en fonction de leur valeur de comptage
-        sortedIndexValuate = []
-        for key in allIndexValuate.keys():
-            if(not sortedIndexValuate):
-                sortedIndexValuate.append((key,allIndexValuate[key]))
-            else:
-                currentSortedindex = 0
-                isAdded = False
-                while(currentSortedindex < len(sortedIndexValuate) and not isAdded):
-                    if(sortedIndexValuate[currentSortedindex][1] > allIndexValuate[key]):
-                        currentSortedindex+=1
-                    else:
-                        sortedIndexValuate.insert(currentSortedindex,(key,allIndexValuate[key]))
-                        isAdded = True
-                if(not isAdded):
-                    sortedIndexValuate.append((key,allIndexValuate[key]))
-        #print(sortedIndexValuate)
-        #Selection des nbState index voulu
+    def findLowdensityState(self, nbState = 1):
+        #Recuperationd des donnees
+        dataX = self.dataToStateNpArray(self.import_csv(CSVFEATURES,self.rowToABS))
+        #Modele d'evaluation de densite et calcul des densites
+        kde = KernelDensity(kernel='gaussian', bandwidth=50).fit(dataX)
+        log_density = kde.score_samples(dataX)
+        #Choix aléatoire entre les nbAdded + nbState éléments de faible densité !
+        bestIndex = []
+        nbAdded = 20
+        if(nbState+nbAdded > len(dataX)):
+            nbAdded = len(dataX) - nbState
+        #Avec un avantage lineaire des moins denses
+        for i in range(nbState+nbAdded):
+            currentBestIndex = np.argmin(log_density)
+            bestIndex = bestIndex + [currentBestIndex for j in range(nbState+nbAdded - i)]
+            log_density[np.argmin(log_density)] = 0
+        #Selection des indices finaux
         wantedIndex = []
-        valueComptage = sortedIndexValuate[0][1]
-        currentIndex = 0
-        while len(wantedIndex) != nbState: #Choix parmi ceux qui on la valeur de comptage la plus elevee
-            possibleIndex = [sortedIndexValuate[currentIndex][0]]
-            currentIndex+=1
-            while valueComptage == sortedIndexValuate[currentIndex][1]:
-                currentIndex+=1
-                possibleIndex.append(sortedIndexValuate[currentIndex][0])
-            if(len(possibleIndex)+len(wantedIndex) > nbState): #Si on a trop de choix possible : choix aleatoire !
-                nbIndexManquant = nbState - len(wantedIndex)
-                for i in range(nbIndexManquant):
-                    randomIndex = np.random.randint(len(possibleIndex))
-                    wantedIndex.append(possibleIndex[randomIndex])
-                    possibleIndex.pop(randomIndex)
-            else:
-                #Ajout de tous les indexs possibles courants
-                for index in possibleIndex:
-                    wantedIndex.append(index)
+        while len(wantedIndex) != nbState:
+            index = np.random.randint(len(bestIndex))
+            if(not bestIndex[index] in wantedIndex):
+                wantedIndex.append(bestIndex[index])
         return dataX[wantedIndex]
 
     def evaluateDensity(self,state):
@@ -794,3 +657,17 @@ class csvHandler(object):
             currentState.append(equipe['distBallCage'])
             states[iState] = currentState
         return states
+
+    def getEquipe(self):
+        equipe = self.import_csv(CSVPLAYABLEINFO)
+        if(not equipe):
+            equipe = 0
+        else:
+            equipe = int(equipe[0][0])
+        self.writeEquipe(-equipe+1)
+        return equipe
+
+    def writeEquipe(self,value):
+        with open(CSVPLAYABLEINFO, 'w', newline='') as f:
+            writer = csv.writer(f, delimiter='_')
+            writer.writerow(str(value))
