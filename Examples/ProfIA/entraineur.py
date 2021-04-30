@@ -298,7 +298,7 @@ class EntraineurDistribueRel(Entraineur):
             self.positionKNN = {}
             for key in self.playerOrdersIndex.keys():
                 self.positionKNN[key] = KNeighborsClassifier(n_neighbors=self.nbNeighbors)
-                #print(len(self.playerOrdersIndex[key]))
+                print(len(self.playerOrdersIndex[key]))
                 self.positionKNN[key].fit(self.statesData[self.playerOrdersIndex[key]],self.playerOrdersIndex[key])
         else:
             for iData in range(len(self.ordersData)):
@@ -328,7 +328,8 @@ class EntraineurDistribueRel(Entraineur):
         distDef2=[]
         distAdv2=[]
         for k,v in (currentState.players):
-            list+=self.getPlayerKNNState(currentState, k,v)
+            if(not self.orderByCageDist):
+                list+=self.getPlayerKNNState(currentState, k,v)
             if k == 1:
                 # Distances entre la cage de l'equipe 1 et les joueurs de l'equipe 1
                 distDef1.append(CageTeam1.distance(currentState.player_state(k,v).position))
@@ -365,6 +366,22 @@ class EntraineurDistribueRel(Entraineur):
                 ordonnancement["(" + str(team1Ordonne[iJoueurProximite][0]) + ", " + str(team1Ordonne[iJoueurProximite][1]) + ")"] = iJoueurProximite
             for iJoueurProximite in range(len(team2Ordonne)):
                 ordonnancement["(" + str(team2Ordonne[iJoueurProximite][0]) + ", " + str(team2Ordonne[iJoueurProximite][1]) + ")"] = iJoueurProximite
+            k = 1
+            v = 0
+            isDone = False
+            while not isDone:
+                for key in ordonnancement.keys():
+                    if(int(key[1]) == k and ordonnancement[key] == v):
+                        list += self.getPlayerKNNState(currentState, int(key[1]), int(key[4]))
+                        #print(k,v,list)
+                        if(v != 3):
+                            v+=1
+                        else:
+                            if(k == 1):
+                                k+=1
+                                v=0
+                            else:
+                                isDone = True
         # Distance CageTeam1 et defenseur allie le plus proche
         list.append(min(distDef1))
         # Distance CageTeam1 et attaquant adverse le plus proche
@@ -395,42 +412,59 @@ class EntraineurDistribueRel(Entraineur):
             if self.orderByCageDist:
                 #On calcule avant tout la position a la cage du joueur dans l'etat courrant
                 positionALaCage = self.currentStateOrdonnancement[joueurID]
+
                 #L'état le plus proche
                 bestStateIndex = self.positionKNN[positionALaCage].predict(self.currentStateForKNN.reshape(1, -1))[0]
+
                 #L'identifiant de l'ordre associe a l'etat le plus proche en fonction de la position a la cage
                 bestStateOrdreID = self.positionToCageToOrderID(positionALaCage,bestStateIndex,self.myTeam)
                 #Enfin les probabilites sur les etats les plus proches
                 statesProbas = self.positionKNN[positionALaCage].predict_proba(self.currentStateForKNN.reshape(1, -1))[0]
-                if (joueur == 0 and self.myTeam == 2):
-                    pass
-                    #print("Position à la cage : ", positionALaCage)
-                    #print(joueurID, bestStateOrdreID)
+                #if (joueurID == "(1, 3)"):
+                #    print("*** IN THINK ORDER *************************************************")
+                #    print("Position à Cage : ", positionALaCage)
+                #    print("BestStateIndex : ", bestStateIndex)
+                #    print("Etat courrant : ", self.currentStateForKNN)
+                #    print("Les probas :\n",statesProbas)
             else:
                 bestStateIndex = self.playerKNN[joueurID].predict(self.currentStateForKNN.reshape(1, -1))[0]
                 statesProbas = self.playerKNN[joueurID].predict_proba(self.currentStateForKNN.reshape(1, -1))[0]
             indNearestStates=[]
+            #if (joueurID == "(1, 3)"):
+            #    print("Soit les indices : ", end = "")
             for i in range(self.nbNeighbors):
                 index = max(range(len(statesProbas)), key=statesProbas.__getitem__)
                 if statesProbas[index] != 0:
                     if(self.orderByCageDist):
+                        #if (joueurID == "(1, 3)"):
+                        #    print(index,end=" ")
                         indNearestStates.append(self.playerOrdersIndex[positionALaCage][index])
                     else:
                         indNearestStates.append(self.playerOrdersIndex[joueurID][index])
                     statesProbas[index] = 0
             # L'état le plus proche, on le passe en paramètre de decode au cas où on a une égalité entre les cibles/actions #TODO
             if (self.orderByCageDist):
+                #if (joueurID == "(1, 3)"):
+                #    print("\nSoit les données : ",indNearestStates)
+                #    print("Avec la derniere donnee ",len(statesProbas)-1," etant ",self.playerOrdersIndex[positionALaCage][len(statesProbas)-1])
                 nearestOrder = self.ordersData[bestStateIndex].get(bestStateOrdreID,None)
                 mixedOrder = self.mixOrders(indNearestStates, bestStateOrdreID, positionALaCage)
+                #if (joueurID == "(1, 3)"):
+                #    print("MixedOrder : ", mixedOrder)
             else:
                 nearestOrder = self.ordersData[bestStateIndex].get(joueurID, None)
                 mixedOrder = self.mixOrders(indNearestStates, joueurID)
-            #print("ORDER A ENCODER : ", mixedOrder)
+            #if (joueur == 0 and self.myTeam == 1):
+            #    print("ORDER A ENCODER : ", mixedOrder)
             closestOrder = self.csvHandler.decode(mixedOrder)
+            #if (joueurID == "(1, 3)"):
+            #    print("Soit l'ordre decode : ", closestOrder)
             #closestOrders = self.ordersData[bestStateIndex]
             ##closestOrders = self.csvHandler.decode1NN(self.ordersData[bestStateIndex])
             ##closestOrder = closestOrders.get("("+str(self.myTeam)+", "+str(joueur)+")", None)
             #print(closestOrder) --> ['tire vers', 'CageAdverse']
-            #print("ORDRE DECODER: ",closestOrder)
+            #if (joueur == 0 and self.myTeam == 1):
+            #    print("ORDRE DECODER: ",closestOrder)
             if closestOrder:
                 if (self.orderByCageDist):
                     if closestOrder[1][0] == "(":
@@ -452,24 +486,23 @@ class EntraineurDistribueRel(Entraineur):
     def mixOrders(self, indStates, joueurID, positionToCage = None):
         #Simplement une moyenne des valeurs mixees !
         if self.orderByCageDist:
-            if(joueurID == "(1, 0)"):
-                pass
-                #print("###############################################################################################")
-                #print("PositionToFollow : ", self.positionToCageToOrderID(positionToCage, indStates[0], self.myTeam))
-                #print(self.ordersData[indStates[0]].get(self.positionToCageToOrderID(positionToCage, indStates[0], self.myTeam), None).copy())
-            #print("Identifiant : ", self.positionToCageToOrderID(positionToCage,indStates[0],self.myTeam))
-            #print(self.ordersData[indStates[0]])
             order = self.ordersData[indStates[0]].get(self.positionToCageToOrderID(positionToCage,indStates[0],self.myTeam), None).copy()
+            #if(joueurID == "(1, 3)"):
+            #    print(indStates[0], " : ", order)
         else:
             order = self.ordersData[indStates[0]].get(joueurID, None).copy()
         for iInd in range(1,len(indStates)):
             if self.orderByCageDist:
-                #if(joueurID == "(1, 0)"):
-                    #print("PositionToFollow : ", self.positionToCageToOrderID(positionToCage, indStates[iInd], self.myTeam))
-                    #print(self.ordersData[indStates[iInd]].get(self.positionToCageToOrderID(positionToCage, indStates[iInd], self.myTeam), None).copy())
                 order += self.ordersData[indStates[iInd]].get(self.positionToCageToOrderID(positionToCage,indStates[iInd],self.myTeam), None).copy()
+                #if (joueurID == "(1, 3)"):
+                #    print(indStates[iInd], " : ", self.ordersData[indStates[iInd]].get(self.positionToCageToOrderID(positionToCage,indStates[iInd],self.myTeam), None).copy())
+                #    print(indStates[iInd], " : ", self.statesData[indStates[iInd]].copy())
             else:
                 order += self.ordersData[indStates[iInd]].get(joueurID, None).copy()
+        #if (joueurID == "(1, 3)"):
+        #    print("Position derniere donnee : ",len(self.ordersData)-1)
+        #    print("Dernier ordre : ", self.ordersData[-1].get(self.positionToCageToOrderID(positionToCage,len(self.ordersData)-1,self.myTeam), None).copy())
+        #    print("Derniere donnée : ", self.statesData[-1].copy())
         order = order/len(indStates)
         return order
 
@@ -751,7 +784,8 @@ class EntraineurSVM(Entraineur):
         distDef2=[]
         distAdv2=[]
         for k,v in (currentState.players):
-            list+=self.getPlayerSVMState(currentState, k,v)
+            if (not self.orderByCageDist):
+                list += self.getPlayerSVMState(currentState, k, v)
             if k == 1:
                 # Distances entre la cage de l'equipe 1 et les joueurs de l'equipe 1
                 distDef1.append(CageTeam1.distance(currentState.player_state(k,v).position))
@@ -785,9 +819,27 @@ class EntraineurSVM(Entraineur):
                         currentList.insert(index, (k, v, distToCage))
         if (self.orderByCageDist):
             for iJoueurProximite in range(len(team1Ordonne)):
-                ordonnancement["(" + str(team1Ordonne[iJoueurProximite][0]) + ", " + str(team1Ordonne[iJoueurProximite][1]) + ")"] = iJoueurProximite
+                ordonnancement["(" + str(team1Ordonne[iJoueurProximite][0]) + ", " + str(
+                    team1Ordonne[iJoueurProximite][1]) + ")"] = iJoueurProximite
             for iJoueurProximite in range(len(team2Ordonne)):
-                ordonnancement["(" + str(team2Ordonne[iJoueurProximite][0]) + ", " + str(team2Ordonne[iJoueurProximite][1]) + ")"] = iJoueurProximite
+                ordonnancement["(" + str(team2Ordonne[iJoueurProximite][0]) + ", " + str(
+                    team2Ordonne[iJoueurProximite][1]) + ")"] = iJoueurProximite
+            k = 1
+            v = 0
+            isDone = False
+            while not isDone:
+                for key in ordonnancement.keys():
+                    if (int(key[1]) == k and ordonnancement[key] == v):
+                        list += self.getPlayerSVMState(currentState, int(key[1]), int(key[4]))
+                        # print(k,v,list)
+                        if (v != 3):
+                            v += 1
+                        else:
+                            if (k == 1):
+                                k += 1
+                                v = 0
+                            else:
+                                isDone = True
         # Distance CageTeam1 et defenseur allie le plus proche
         list.append(min(distDef1))
         # Distance CageTeam1 et attaquant adverse le plus proche
@@ -801,7 +853,6 @@ class EntraineurSVM(Entraineur):
         # Distance entre la balle et la cage de l'equipe 2
         list.append(CageTeam2.distance(currentState.ball.position))
         self.currentStateForSVM = np.array(list)
-        #print(self.currentStateForSVM.shape)
         self.currentStateOrdonnancement = ordonnancement
 
     def thinkOrders(self):

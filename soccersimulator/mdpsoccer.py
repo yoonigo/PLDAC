@@ -328,7 +328,7 @@ class SoccerState(object):
         return state
 
     @classmethod
-    def createMutatedState(cls, nb_players_1=0,nb_players_2=0, mutationValue = 0.01):
+    def createMutatedState(cls, nb_players_1=0,nb_players_2=0, mutationValue = 0.1):
         state = cls()
         dataHandler = csvHandler(1,[nb_players_1,nb_players_2])
         dataLowDensity = dataHandler.findLowdensityState(nbState=1)[0]
@@ -339,13 +339,13 @@ class SoccerState(object):
         if nb_players_1 == 4:
             state.states[1, 0] = PlayerState(position=Vector2D(dataLowDensity[0], dataLowDensity[1]))
             state.states[1, 1] = PlayerState(position=Vector2D(dataLowDensity[2], dataLowDensity[3]))
-            state.states[1, 2] = PlayerState(position=Vector2D(dataLowDensity[4], dataLowDensity[4]))
-            state.states[1, 3] = PlayerState(position=Vector2D(dataLowDensity[6], dataLowDensity[5]))
+            state.states[1, 2] = PlayerState(position=Vector2D(dataLowDensity[4], dataLowDensity[5]))
+            state.states[1, 3] = PlayerState(position=Vector2D(dataLowDensity[6], dataLowDensity[7]))
         if nb_players_2 == 4:
-            state.states[2, 0] = PlayerState(position=Vector2D(dataLowDensity[8], dataLowDensity[7]))
-            state.states[2, 1] = PlayerState(position=Vector2D(dataLowDensity[10], dataLowDensity[9]))
-            state.states[2, 2] = PlayerState(position=Vector2D(dataLowDensity[12], dataLowDensity[11]))
-            state.states[2, 3] = PlayerState(position=Vector2D(dataLowDensity[14], dataLowDensity[13]))
+            state.states[2, 0] = PlayerState(position=Vector2D(dataLowDensity[8], dataLowDensity[9]))
+            state.states[2, 1] = PlayerState(position=Vector2D(dataLowDensity[10], dataLowDensity[11]))
+            state.states[2, 2] = PlayerState(position=Vector2D(dataLowDensity[12], dataLowDensity[13]))
+            state.states[2, 3] = PlayerState(position=Vector2D(dataLowDensity[14], dataLowDensity[15]))
         state.ball = Ball(Vector2D(dataLowDensity[-4],dataLowDensity[-3]),Vector2D())
         state.goal = 0
         return state
@@ -374,13 +374,13 @@ class SoccerState(object):
         if nb_players_1 == 4:
             state.states[1, 0] = PlayerState(position=Vector2D(dataLowDensity[0], dataLowDensity[1]))
             state.states[1, 1] = PlayerState(position=Vector2D(dataLowDensity[2], dataLowDensity[3]))
-            state.states[1, 2] = PlayerState(position=Vector2D(dataLowDensity[4], dataLowDensity[4]))
-            state.states[1, 3] = PlayerState(position=Vector2D(dataLowDensity[6], dataLowDensity[5]))
+            state.states[1, 2] = PlayerState(position=Vector2D(dataLowDensity[4], dataLowDensity[5]))
+            state.states[1, 3] = PlayerState(position=Vector2D(dataLowDensity[6], dataLowDensity[7]))
         if nb_players_2 == 4:
-            state.states[2, 0] = PlayerState(position=Vector2D(dataLowDensity[8], dataLowDensity[7]))
-            state.states[2, 1] = PlayerState(position=Vector2D(dataLowDensity[10], dataLowDensity[9]))
-            state.states[2, 2] = PlayerState(position=Vector2D(dataLowDensity[12], dataLowDensity[11]))
-            state.states[2, 3] = PlayerState(position=Vector2D(dataLowDensity[14], dataLowDensity[13]))
+            state.states[2, 0] = PlayerState(position=Vector2D(dataLowDensity[8], dataLowDensity[9]))
+            state.states[2, 1] = PlayerState(position=Vector2D(dataLowDensity[10], dataLowDensity[11]))
+            state.states[2, 2] = PlayerState(position=Vector2D(dataLowDensity[12], dataLowDensity[13]))
+            state.states[2, 3] = PlayerState(position=Vector2D(dataLowDensity[14], dataLowDensity[15]))
         state.ball = Ball(Vector2D(dataLowDensity[-4], dataLowDensity[-3]), Vector2D())
         state.goal = 0
         return state
@@ -427,13 +427,13 @@ class SoccerState(object):
             self.states[(InverseTeam(2), 2)] = PlayerState(position=InversePosition(Vector2D(settings.GAME_WIDTH*0.85, quarters[2])))
         if getNbPlayers(InverseTeam(1)) == 4:
             self.states[(InverseTeam(1), 0)] = PlayerState(position=InversePosition(Vector2D((settings.GAME_WIDTH/2)*0.9, quarters[1])))
-            self.states[(InverseTeam(1), 1)] = PlayerState(position=InversePosition(Vector2D(settings.GAME_WIDTH*0.30, quarters[0])))
-            self.states[(InverseTeam(1), 2)] = PlayerState(position=InversePosition(Vector2D(settings.GAME_WIDTH*0.30, quarters[2])))
+            self.states[(InverseTeam(1), 1)] = PlayerState(position=InversePosition(Vector2D(settings.GAME_WIDTH*0.30-5, quarters[0])))
+            self.states[(InverseTeam(1), 2)] = PlayerState(position=InversePosition(Vector2D(settings.GAME_WIDTH*0.30+5, quarters[2])))
             self.states[(InverseTeam(1), 3)] = PlayerState(position=InversePosition(Vector2D(settings.GAME_WIDTH*0.15, quarters[1])))
         if getNbPlayers(InverseTeam(2)) == 4:
             self.states[(InverseTeam(2), 0)] = PlayerState(position=InversePosition(Vector2D((settings.GAME_WIDTH/2)*1.3, quarters[1])))
-            self.states[(InverseTeam(2), 1)] = PlayerState(position=InversePosition(Vector2D(settings.GAME_WIDTH*0.8, quarters[0])))
-            self.states[(InverseTeam(2), 2)] = PlayerState(position=InversePosition(Vector2D(settings.GAME_WIDTH*0.8, quarters[2])))
+            self.states[(InverseTeam(2), 1)] = PlayerState(position=InversePosition(Vector2D(settings.GAME_WIDTH*0.8-5, quarters[0])))
+            self.states[(InverseTeam(2), 2)] = PlayerState(position=InversePosition(Vector2D(settings.GAME_WIDTH*0.8+5, quarters[2])))
             self.states[(InverseTeam(2), 3)] = PlayerState(position=InversePosition(Vector2D(settings.GAME_WIDTH*0.9, quarters[1])))
         self.ball = Ball(Vector2D(settings.GAME_WIDTH / 2, settings.GAME_HEIGHT / 2),Vector2D())
         self.goal = 0
@@ -498,7 +498,6 @@ class SoccerTeam(object):
         self.players.append(Player(name,strategy,type))
         if(self.entraineur != None):
             strats = self.entraineur.getOrderStrategies()
-            print(strats)
             strats[len(self.players)-1]=strategy
             self.entraineur.setOrderStrategies(strats)
         return self

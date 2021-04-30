@@ -544,7 +544,7 @@ class csvHandler(object):
 
     def findLowdensityState(self, nbState = 1):
         #Recuperationd des donnees
-        dataX = self.dataToStateNpArray(self.import_csv(CSVFEATURES,self.rowToABS)[1:])
+        dataX = self.dataToStateNpArray(self.import_csv(CSVFEATURES,self.rowToABS))
         #Modele d'evaluation de densite et calcul des densites
         kde = KernelDensity(kernel='gaussian', bandwidth=50).fit(dataX)
         log_density = kde.score_samples(dataX)
@@ -557,7 +557,7 @@ class csvHandler(object):
         for i in range(nbState+nbAdded):
             currentBestIndex = np.argmin(log_density)
             bestIndex = bestIndex + [currentBestIndex for j in range(nbState+nbAdded - i)]
-            log_density = np.delete(log_density,np.argmin(log_density))
+            log_density[np.argmin(log_density)] = 0
         #Selection des indices finaux
         wantedIndex = []
         while len(wantedIndex) != nbState:

@@ -4,8 +4,8 @@ from ProfIA import FonceurStrategy,FonceurStrategyWithOrder,FonceurTestStrategy,
 
 ## Creation d'une equipe
 #pyteam = SoccerTeam(name="RealTeam")
-pyteam = SoccerTeam(name="RealTeam", entraineur=EntraineurDistribueRel(True,8))
-#pyteam = SoccerTeam(name="SubstantialTeam", entraineur=EntraineurSVM(True))
+#pyteam = SoccerTeam(name="RealTeam", entraineur=EntraineurDistribueRel(True,8))
+pyteam = SoccerTeam(name="SubstantialTeam", entraineur=EntraineurSVM(True))
 
 #pyteam.add("Mouna",DefenseurStrategy(), "strength")
 pyteam.add("Mouna",FonceurStrategyWithOrder(), "speed")
@@ -31,6 +31,6 @@ team2.add("Guillaume",FonceurStrategyWithOrder(),"agility")
 
 
 #Creation d'une partie
-simu = Simulation(pyteam,team2,getMoreData=False,isPlayable=False,shouldSaveData=False)
+simu = Simulation(pyteam,team2,getMoreData=False,isPlayable=False,shouldSaveData=True)
 #Jouer et afficher la partie
 show_simu(simu)
