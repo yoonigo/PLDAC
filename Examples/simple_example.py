@@ -4,8 +4,8 @@ from ProfIA import FonceurStrategy,FonceurStrategyWithOrder,FonceurTestStrategy,
 
 ## Creation d'une equipe
 #pyteam = SoccerTeam(name="RealTeam")
-#pyteam = SoccerTeam(name="RealTeam", entraineur=EntraineurDistribueRel(True,8))
-pyteam = SoccerTeam(name="SubstantialTeam", entraineur=EntraineurSVM(True))
+pyteam = SoccerTeam(name="RealTeam", entraineur=EntraineurDistribueRel(True,8))
+#pyteam = SoccerTeam(name="SubstantialTeam", entraineur=EntraineurSVM(True))
 
 #pyteam.add("Mouna",DefenseurStrategy(), "strength")
 pyteam.add("Mouna",FonceurStrategyWithOrder(), "speed")
@@ -16,8 +16,8 @@ pyteam.add("Manu",FonceurStrategyWithOrder(),"agility")
 
 #team2 = SoccerTeam(name="SubstantialTeam")
 #team2 = SoccerTeam(name="SubstantialTeam", entraineur=EntraineurRandom(["tire vers","se deplace vers","dribble vers"],["Balle","CornerTopLeft","CornerTopRight","CornerBottomLeft","CornerBottomRight","MiddleTop","Middle","MiddleBottom"]))
-#team2 = SoccerTeam(name="SubstantialTeam", entraineur=EntraineurDistribueRel(True,8))
-team2 = SoccerTeam(name="SubstantialTeam", entraineur=EntraineurSVM(True))
+team2 = SoccerTeam(name="SubstantialTeam", entraineur=EntraineurDistribueRel(True,8))
+#team2 = SoccerTeam(name="SubstantialTeam", entraineur=EntraineurSVM(True))
 
 #team2.add("Guillaume",DefenseurStrategy(),"strength")
 #team2.add("Guillaume2",DefenseurStrategy(),"speed")
@@ -31,6 +31,6 @@ team2.add("Guillaume",FonceurStrategyWithOrder(),"agility")
 
 
 #Creation d'une partie
-simu = Simulation(pyteam,team2,getMoreData=False,isPlayable=False,shouldSaveData=True)
+simu = Simulation(pyteam,team2,getMoreData=False,isPlayable=False,shouldSaveData=False)
 #Jouer et afficher la partie
 show_simu(simu)
